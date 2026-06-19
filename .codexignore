@@ -1,0 +1,35 @@
+# Node
+node_modules/
+
+# Next.js Build
+.next/
+out/
+
+# Cache
+.cache/
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+*.log
+logs/
+
+# Git
+.git/
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env.local
+.env.development.local
+.env.production.local
+
+# Coverage
+coverage/
+
+# Temporary
+tmp/
+temp/
