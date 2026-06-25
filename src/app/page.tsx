@@ -8,13 +8,14 @@ import {
   Plus,
   ShieldCheck
 } from "lucide-react";
+import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const navItems = [
-  { label: "대시보드", icon: Grid2X2, active: true },
-  { label: "모임 생성", icon: CalendarPlus },
-  { label: "참석 체크", icon: ClipboardCheck },
-  { label: "공지/리마인드", icon: Bell }
+  { label: "대시보드", icon: Grid2X2, href: "/", active: true },
+  { label: "모임 생성", icon: CalendarPlus, href: "/meetings/new" },
+  { label: "참석 체크", icon: ClipboardCheck, href: "/" },
+  { label: "공지/리마인드", icon: Bell, href: "/" }
 ];
 
 const summary = [
@@ -120,10 +121,13 @@ export default async function Home({
                   <Copy size={18} />
                   참가 링크
                 </button>
-                <button className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[#437d74] px-4 text-sm font-black text-white shadow-sm">
+                <Link
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[#437d74] px-4 text-sm font-black text-white shadow-sm"
+                  href="/meetings/new"
+                >
                   <Plus size={18} />
                   새 모임
-                </button>
+                </Link>
               </div>
             </div>
 
@@ -196,22 +200,25 @@ function Brand() {
 
 function NavButton({
   label,
+  href,
   icon: Icon,
   active = false
 }: {
   label: string;
+  href: string;
   icon: typeof Grid2X2;
   active?: boolean;
 }) {
   return (
-    <button
+    <Link
       className={`flex h-20 items-center justify-center gap-4 rounded-lg px-4 text-xl font-black text-white/86 lg:h-[52px] lg:justify-start lg:text-base ${
         active ? "bg-white/18" : "bg-transparent"
       }`}
+      href={href}
     >
       <Icon size={26} />
       <span>{label}</span>
-    </button>
+    </Link>
   );
 }
 
