@@ -39,7 +39,7 @@ export async function createSupabaseServerClient() {
 export function getSiteUrl(requestOrigin?: string) {
   return (
     process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.VERCEL_PROJECT_PRODUCTION_URL?.replace(/^/, "https://") ||
+    process.env.VERCEL_PROJECT_PRODUCTION_URL?.replace(/^/, "https://mo-ija.vercel.app") ||
     requestOrigin ||
     "http://localhost:3000"
   );
