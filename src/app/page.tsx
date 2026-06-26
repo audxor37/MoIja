@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   Copy,
   Grid2X2,
+  KeyRound,
   LogIn,
   MapPin,
   MessageCircle,
@@ -15,9 +16,11 @@ import {
   ShieldCheck,
   Timer,
   Trophy,
+  UserRoundPlus,
   Users
 } from "lucide-react";
 import Link from "next/link";
+import { createOrganizerTeam, joinTeamByInvite } from "@/app/onboarding/actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const navItems = [
@@ -66,6 +69,14 @@ const authMessages: Record<string, string> = {
   supabase_env_missing: "Supabase 환경 변수가 아직 설정되지 않았습니다. .env.local을 먼저 준비하세요."
 };
 
+const onboardingErrors: Record<string, string> = {
+  auth_required: "로그인 세션을 확인하지 못했습니다. 다시 카카오로 로그인하세요.",
+  join_failed: "초대 코드를 찾지 못했습니다. 운영자에게 받은 코드나 링크를 다시 확인하세요.",
+  owner_member_failed: "팀은 생성됐지만 운영자 권한 연결에 실패했습니다. team_members RLS를 확인하세요.",
+  profile_failed: "프로필 저장에 실패했습니다. profiles RLS와 스키마를 확인하세요.",
+  team_create_failed: "팀 생성에 실패했습니다. teams 스키마와 RLS를 확인하세요."
+};
+
 const bottomNav = [
   { label: "홈", icon: Grid2X2, active: true },
   { label: "경기", icon: CalendarPlus },
@@ -77,18 +88,35 @@ const bottomNav = [
 export default async function Home({
   searchParams
 }: {
-  searchParams?: Promise<{ auth_error?: string }>;
+  searchParams?: Promise<{ auth_error?: string; onboarding_error?: string; onboarding_message?: string }>;
 }) {
   const params = await searchParams;
   const authError = params?.auth_error;
   const authMessage = authError ? authMessages[authError] : null;
+  const onboardingError = params?.onboarding_error ? onboardingErrors[params.onboarding_error] : null;
+  const onboardingMessage = params?.onboarding_message ?? null;
   const session = await getCurrentSession();
 
   if (!session.nickname) {
     return <PublicHome authMessage={authMessage} />;
   }
 
-  return <OperatorDashboard authMessage={authMessage} nickname={session.nickname} />;
+  if (!session.team) {
+    return (
+      <OnboardingStart
+        message={authMessage || onboardingError || onboardingMessage}
+        nickname={session.nickname}
+      />
+    );
+  }
+
+  return (
+    <OperatorDashboard
+      authMessage={authMessage}
+      nickname={session.nickname}
+      team={session.team}
+    />
+  );
 }
 
 function PublicHome({ authMessage }: { authMessage: string | null }) {
@@ -202,7 +230,156 @@ function PublicHome({ authMessage }: { authMessage: string | null }) {
   );
 }
 
-function OperatorDashboard({ authMessage, nickname }: { authMessage: string | null; nickname: string }) {
+function OnboardingStart({
+  message,
+  nickname
+}: {
+  message: string | null;
+  nickname: string;
+}) {
+  return (
+    <main className="min-h-screen bg-app text-ink">
+      <header className="border-b border-line bg-white/95 px-4 py-4 backdrop-blur sm:px-6">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3">
+          <Brand />
+          <AuthActions nickname={nickname} />
+        </div>
+      </header>
+
+      <section className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[0.86fr_1.14fr] lg:items-start lg:py-10">
+        <div className="lg:sticky lg:top-8">
+          <span className="inline-flex h-8 items-center rounded-full bg-[#E8F3FF] px-3 text-xs font-bold text-strategy">
+            첫 시작 설정
+          </span>
+          <h1 className="mt-4 text-[32px] font-bold leading-[1.18] sm:text-[42px]">
+            지금 하려는 일을 선택해주세요
+          </h1>
+          <p className="mt-4 max-w-xl text-base font-semibold leading-8 text-secondary">
+            계정을 운영자와 참석자로 나누지 않습니다. 팀마다 역할을 다르게 가질 수 있도록 첫 행동만
+            선택하고, 권한은 팀 멤버십에 저장합니다.
+          </p>
+
+          {message ? (
+            <div className="mt-5 rounded-2xl border border-[#FBD6A3] bg-[#FFF7E8] px-5 py-4 text-sm font-semibold text-[#8A5200]">
+              {message}
+            </div>
+          ) : null}
+
+          <div className="mt-6 grid gap-3 text-sm font-semibold text-secondary">
+            <div className="flex gap-3 rounded-2xl bg-white p-4 shadow-soft">
+              <ShieldCheck className="mt-0.5 shrink-0 text-primary" size={20} />
+              <p>팀을 만들면 자동으로 Owner가 되고, 초대 코드는 새 멤버 진입에 사용됩니다.</p>
+            </div>
+            <div className="flex gap-3 rounded-2xl bg-white p-4 shadow-soft">
+              <Users className="mt-0.5 shrink-0 text-strategy" size={20} />
+              <p>초대받은 사람은 기본 Member로 들어오며, 운영자가 나중에 권한을 조정할 수 있습니다.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-5">
+          <section className="rounded-2xl bg-white p-5 shadow-card sm:p-6">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#E8F7EE] text-primary">
+                <ShieldCheck size={24} />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-primary">모임을 운영할게요</p>
+                <h2 className="mt-1 text-2xl font-bold">새 팀을 만들고 참석 관리를 시작합니다</h2>
+                <p className="mt-2 text-sm font-semibold leading-6 text-secondary">
+                  팀 이름과 종목만 먼저 저장합니다. 장소, 경기, 출석 방식은 다음 단계에서 확장합니다.
+                </p>
+              </div>
+            </div>
+
+            <form action={createOrganizerTeam} className="mt-6 grid gap-4">
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold text-secondary">팀 이름</span>
+                <input
+                  className="field-input"
+                  name="teamName"
+                  placeholder="예: 목요 풋살 크루"
+                  type="text"
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold text-secondary">종목</span>
+                <select className="field-input" name="sportType" defaultValue="futsal">
+                  <option value="futsal">풋살</option>
+                  <option value="soccer">축구</option>
+                  <option value="running">러닝</option>
+                  <option value="study">스터디</option>
+                  <option value="book">독서 모임</option>
+                </select>
+              </label>
+              <button
+                className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-base font-bold text-white shadow-card transition hover:bg-[#12843D]"
+                type="submit"
+              >
+                <Plus size={18} />
+                팀 만들고 Owner로 시작
+              </button>
+            </form>
+          </section>
+
+          <section className="rounded-2xl bg-white p-5 shadow-card sm:p-6">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#E8F3FF] text-strategy">
+                <UserRoundPlus size={24} />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-strategy">초대받은 모임에 참석할게요</p>
+                <h2 className="mt-1 text-2xl font-bold">초대 코드로 팀에 들어갑니다</h2>
+                <p className="mt-2 text-sm font-semibold leading-6 text-secondary">
+                  운영자에게 받은 코드나 링크를 입력하면 Member로 가입됩니다.
+                </p>
+              </div>
+            </div>
+
+            <form action={joinTeamByInvite} className="mt-6 grid gap-4">
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold text-secondary">초대 코드 또는 링크</span>
+                <div className="relative">
+                  <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
+                  <input
+                    className="field-input w-full pl-11"
+                    name="inviteCode"
+                    placeholder="예: ABCD1234"
+                    type="text"
+                  />
+                </div>
+              </label>
+              <button
+                className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-navy px-5 text-base font-bold text-white shadow-card transition hover:bg-[#243244]"
+                type="submit"
+              >
+                <LogIn size={18} />
+                Member로 참석 시작
+              </button>
+            </form>
+          </section>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+type TeamSession = {
+  id: string;
+  name: string;
+  role: string;
+  inviteCode: string | null;
+};
+
+function OperatorDashboard({
+  authMessage,
+  nickname,
+  team
+}: {
+  authMessage: string | null;
+  nickname: string;
+  team: TeamSession;
+}) {
   return (
     <main className="min-h-screen bg-app pb-24 text-ink lg:pb-0">
       <div className="lg:grid lg:min-h-screen lg:grid-cols-[280px_1fr]">
@@ -229,7 +406,7 @@ function OperatorDashboard({ authMessage, nickname }: { authMessage: string | nu
                 </div>
                 <div>
                   <p className="text-base font-bold">운영자 대시보드</p>
-                  <p className="mt-1 text-sm text-secondary">오늘 필요한 참석 관리 액션을 확인합니다.</p>
+                  <p className="mt-1 text-sm text-secondary">{team.name}의 오늘 필요한 참석 관리 액션을 확인합니다.</p>
                 </div>
               </div>
               <AuthActions nickname={nickname} />
@@ -246,19 +423,23 @@ function OperatorDashboard({ authMessage, nickname }: { authMessage: string | nu
             <section className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <span className="inline-flex h-7 items-center rounded-full bg-[#E8F3FF] px-3 text-xs font-bold text-strategy">
-                  운영자 대시보드
+                  {team.role === "owner" ? "Owner 대시보드" : "팀 대시보드"}
                 </span>
                 <h1 className="mt-3 max-w-3xl text-[30px] font-bold leading-10 sm:text-[34px]">
-                  다음 경기의 참석 신뢰도를 한눈에 관리합니다
+                  {team.name}의 참석 신뢰도를 한눈에 관리합니다
                 </h1>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-secondary sm:text-base sm:leading-7">
                   미응답, 대기, 취소 흐름을 먼저 보여주고 운영자가 바로 리마인드할 수 있게 정리했습니다.
                 </p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
-                <button className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#E8F3FF] px-4 text-sm font-semibold text-strategy transition hover:bg-[#DBEAFF]">
+                <button
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#E8F3FF] px-4 text-sm font-semibold text-strategy transition hover:bg-[#DBEAFF]"
+                  title={team.inviteCode ? `초대 코드: ${team.inviteCode}` : "초대 코드가 아직 없습니다"}
+                  type="button"
+                >
                   <Copy size={18} />
-                  참가 링크
+                  {team.inviteCode ? `초대 코드 ${team.inviteCode}` : "참가 링크"}
                 </button>
                 <Link
                   className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-base font-bold text-white shadow-card transition hover:bg-[#12843D]"
@@ -395,7 +576,7 @@ async function getCurrentSession() {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return { nickname: null };
+      return { nickname: null, team: null };
     }
 
     const { data: profile } = await supabase
@@ -410,9 +591,42 @@ async function getCurrentSession() {
       (typeof user.user_metadata.name === "string" ? user.user_metadata.name : null) ||
       "운영자";
 
-    return { nickname };
+    const { data: membership } = await supabase
+      .from("team_members")
+      .select("role, teams(id, name, invite_code)")
+      .eq("profile_id", user.id)
+      .order("joined_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    type TeamRecord = {
+      id: string;
+      name: string;
+      invite_code: string | null;
+    };
+
+    const typedMembership = membership as
+      | {
+          role?: string;
+          teams?: TeamRecord | TeamRecord[] | null;
+        }
+      | null;
+    const joinedTeam = Array.isArray(typedMembership?.teams)
+      ? typedMembership?.teams[0]
+      : typedMembership?.teams;
+    const team =
+      joinedTeam && typedMembership?.role
+        ? {
+            id: joinedTeam.id,
+            name: joinedTeam.name,
+            role: typedMembership.role,
+            inviteCode: joinedTeam.invite_code
+          }
+        : null;
+
+    return { nickname, team };
   } catch {
-    return { nickname: null };
+    return { nickname: null, team: null };
   }
 }
 
