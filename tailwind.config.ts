@@ -5,16 +5,27 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        field: "#f4f8f1",
-        ink: "#152018",
-        line: "#d9e3d3",
-        grass: "#2f7d42",
-        lime: "#c9f24a",
-        coral: "#ff6b57",
-        sky: "#3a8dde"
+        app: "#F8FAFC",
+        surface: "#FFFFFF",
+        surfaceAlt: "#F2F4F6",
+        line: "#E5E8EB",
+        lineStrong: "#D1D6DB",
+        ink: "#191F28",
+        secondary: "#4E5968",
+        muted: "#8B95A1",
+        disabled: "#B0B8C1",
+        primary: "#16A34A",
+        strategy: "#2563EB",
+        navy: "#0F172A",
+        success: "#03B26C",
+        warning: "#FE9800",
+        danger: "#F04452",
+        tactical: "#7C3AED"
       },
       boxShadow: {
-        soft: "0 16px 40px rgba(21, 32, 24, 0.08)"
+        card: "0 2px 8px rgba(0, 0, 0, 0.08)",
+        soft: "0 1px 3px rgba(0, 0, 0, 0.06)",
+        raised: "0 6px 20px rgba(0, 0, 0, 0.12)"
       }
     }
   },
