@@ -3,11 +3,13 @@ import {
   BarChart3,
   Bell,
   CalendarPlus,
+  CheckCircle2,
   ClipboardCheck,
   Copy,
   Grid2X2,
   LogIn,
   MapPin,
+  MessageCircle,
   Plus,
   Send,
   ShieldCheck,
@@ -21,13 +23,13 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 const navItems = [
   { label: "대시보드", icon: Grid2X2, href: "/", active: true },
   { label: "모임 생성", icon: CalendarPlus, href: "/meetings/new" },
-  { label: "참석 체크", icon: ClipboardCheck, href: "/" },
+  { label: "출석 체크", icon: ClipboardCheck, href: "/" },
   { label: "공지/리마인드", icon: Bell, href: "/" }
 ];
 
 const summary = [
-  { label: "참석 예정", value: "12", unit: "명", tone: "success", note: "확정 인원" },
-  { label: "미응답", value: "4", unit: "명", tone: "warning", note: "리마인드 대상" },
+  { label: "참석 확정", value: "12", unit: "명", tone: "success", note: "확정 인원" },
+  { label: "미응답", value: "4", unit: "명", tone: "warning", note: "리마인드 필요" },
   { label: "예상 참석", value: "15", unit: "명", tone: "info", note: "대기 포함" },
   { label: "응답률", value: "78", unit: "%", tone: "neutral", note: "지난 경기 대비 +6%" }
 ];
@@ -35,8 +37,8 @@ const summary = [
 const meetings = [
   {
     title: "목요일 풋살 정기전",
-    date: "6월 27일 (토) 오후 08:00",
-    place: "잠실 풋살파크 A구장",
+    date: "6월 27일(목) 오후 08:00",
+    place: "신림 풋살파크 A구장",
     status: "개최 확정",
     statusTone: "success",
     attendance: { attending: 12, pending: 4, absent: 2, expected: 15 },
@@ -45,8 +47,8 @@ const meetings = [
   },
   {
     title: "일요일 7:7 친선전",
-    date: "6월 28일 (일) 오전 10:30",
-    place: "상암 보조구장",
+    date: "6월 28일(일) 오전 10:30",
+    place: "성암 보조구장",
     status: "모집중",
     statusTone: "info",
     attendance: { attending: 9, pending: 6, absent: 1, expected: 12 },
@@ -82,6 +84,125 @@ export default async function Home({
   const authMessage = authError ? authMessages[authError] : null;
   const session = await getCurrentSession();
 
+  if (!session.nickname) {
+    return <PublicHome authMessage={authMessage} />;
+  }
+
+  return <OperatorDashboard authMessage={authMessage} nickname={session.nickname} />;
+}
+
+function PublicHome({ authMessage }: { authMessage: string | null }) {
+  return (
+    <main className="min-h-screen bg-app text-ink">
+      <header className="border-b border-line bg-white/95 px-4 py-4 backdrop-blur sm:px-6">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3">
+          <Brand />
+          <Link
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#FEE500] px-4 text-sm font-bold text-[#191600] transition hover:brightness-95"
+            href="/auth/kakao-login"
+          >
+            <MessageCircle size={17} />
+            카카오 로그인
+          </Link>
+        </div>
+      </header>
+
+      <section className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_430px] lg:items-center lg:py-14">
+        <div>
+          <span className="inline-flex h-8 items-center rounded-full bg-[#E8F7EE] px-3 text-xs font-bold text-primary">
+            축구/풋살 모임 운영 SaaS
+          </span>
+          <h1 className="mt-4 max-w-3xl text-[34px] font-bold leading-[1.18] sm:text-[46px]">
+            참석 약속이 지켜지는 팀 문화를 만듭니다
+          </h1>
+          <p className="mt-4 max-w-2xl text-base font-semibold leading-8 text-secondary">
+            MoIja는 경기 생성보다 참석 신뢰도, 노쇼 감소, 운영 자동화에 집중합니다. 운영자는 미응답과
+            대기자를 먼저 보고, 멤버는 자신의 참석 상태와 기록을 빠르게 확인합니다.
+          </p>
+
+          {authMessage ? (
+            <div className="mt-5 rounded-2xl border border-[#FBD6A3] bg-[#FFF7E8] px-5 py-4 text-sm font-semibold text-[#8A5200]">
+              {authMessage}
+            </div>
+          ) : null}
+
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <Link
+              className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-base font-bold text-white shadow-card transition hover:bg-[#12843D]"
+              href="/auth/kakao-login"
+            >
+              <MessageCircle size={20} />
+              카카오로 시작하기
+            </Link>
+            <a
+              className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl border border-line bg-white px-5 text-base font-bold text-secondary transition hover:bg-surfaceAlt"
+              href="#preview"
+            >
+              운영 흐름 보기
+            </a>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-2 text-xs font-bold text-secondary">
+            <span className="rounded-full bg-white px-3 py-2 shadow-soft">Kakao ID</span>
+            <span className="rounded-full bg-white px-3 py-2 shadow-soft">닉네임</span>
+            <span className="rounded-full bg-white px-3 py-2 shadow-soft">프로필 이미지</span>
+            <span className="rounded-full bg-[#E8F3FF] px-3 py-2 text-strategy shadow-soft">필수 정보만 저장</span>
+          </div>
+        </div>
+
+        <section id="preview" className="rounded-2xl bg-white p-5 shadow-card">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase text-strategy">Today</p>
+              <h2 className="mt-1 text-xl font-bold">운영자가 먼저 볼 일</h2>
+            </div>
+            <Activity className="text-primary" size={24} />
+          </div>
+
+          <div className="mt-5 grid gap-3">
+            {[
+              ["미응답 4명", "마감 전 리마인드 필요", "warning"],
+              ["대기자 2명", "취소 발생 시 자동 안내", "info"],
+              ["노쇼 위험 1명", "최근 취소 이력 확인", "danger"]
+            ].map(([title, description, tone]) => (
+              <div className="rounded-xl border border-line bg-surfaceAlt p-4" key={title}>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-base font-bold">{title}</p>
+                  <span className={`h-2.5 w-2.5 rounded-full ${statusDotClass(tone)}`} />
+                </div>
+                <p className="mt-1 text-sm font-semibold text-secondary">{description}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-5 rounded-2xl bg-navy p-5 text-white">
+            <p className="text-sm font-semibold text-white/60">다음 경기 응답률</p>
+            <p className="mt-2 text-4xl font-bold">78%</p>
+            <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-white/12">
+              <div className="h-full w-[78%] rounded-full bg-[#22C55E]" />
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section className="mx-auto grid w-full max-w-6xl gap-4 px-4 pb-10 sm:px-6 md:grid-cols-3">
+        {[
+          ["노쇼 감소", "마감 전 미응답, 지각 취소, 대기 전환을 운영자가 놓치지 않게 정리합니다."],
+          ["신뢰도 기록", "출석 변경 이력을 남겨 시즌 통계와 멤버 신뢰도 계산의 기반을 만듭니다."],
+          ["모바일 우선", "참석 신청, 상태 변경, 리마인드 같은 핵심 행동을 1~2번 안에 처리합니다."]
+        ].map(([title, description]) => (
+          <article className="rounded-2xl bg-white p-5 shadow-card" key={title}>
+            <CheckCircle2 className="text-primary" size={22} />
+            <h2 className="mt-4 text-lg font-bold">{title}</h2>
+            <p className="mt-2 text-sm font-semibold leading-6 text-secondary">{description}</p>
+          </article>
+        ))}
+      </section>
+    </main>
+  );
+}
+
+function OperatorDashboard({ authMessage, nickname }: { authMessage: string | null; nickname: string }) {
   return (
     <main className="min-h-screen bg-app pb-24 text-ink lg:pb-0">
       <div className="lg:grid lg:min-h-screen lg:grid-cols-[280px_1fr]">
@@ -94,7 +215,7 @@ export default async function Home({
           </nav>
           <div className="mt-8 hidden rounded-2xl bg-navy p-5 text-white shadow-card lg:block">
             <p className="text-xs font-semibold uppercase text-white/55">Today</p>
-            <p className="mt-3 text-lg font-bold leading-7">미응답 4명에게 마감 전 리마인드가 필요합니다.</p>
+            <p className="mt-3 text-lg font-bold leading-7">미응답 4명에게 마감 전 리마인드가 필요합니다</p>
             <p className="mt-3 text-sm leading-6 text-white/64">노쇼 위험을 낮추는 운영 액션을 먼저 보여줍니다.</p>
           </div>
         </aside>
@@ -107,11 +228,11 @@ export default async function Home({
                   <ShieldCheck size={24} />
                 </div>
                 <div>
-                  <p className="text-base font-bold">운영자 로그인</p>
-                  <p className="mt-1 text-sm text-secondary">Kakao 로그인과 Supabase 설정 상태를 확인합니다.</p>
+                  <p className="text-base font-bold">운영자 대시보드</p>
+                  <p className="mt-1 text-sm text-secondary">오늘 필요한 참석 관리 액션을 확인합니다.</p>
                 </div>
               </div>
-              <AuthActions nickname={session.nickname} />
+              <AuthActions nickname={nickname} />
             </div>
           </header>
 
@@ -160,7 +281,7 @@ export default async function Home({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h2 className="text-xl font-bold">모임 목록</h2>
-                    <p className="mt-1 text-sm text-secondary">운영 액션이 필요한 순서로 정렬됩니다.</p>
+                    <p className="mt-1 text-sm text-secondary">운영 액션이 필요한 순서로 정렬합니다.</p>
                   </div>
                   <span className="inline-flex w-fit items-center gap-2 rounded-full bg-surfaceAlt px-3 py-1 text-xs font-bold text-secondary">
                     <Timer size={14} />
@@ -186,11 +307,11 @@ export default async function Home({
                     <Activity className="text-primary" size={24} />
                   </div>
                   <p className="mt-3 text-sm leading-6 text-secondary">
-                    잠실 풋살파크 A구장에서 진행합니다. 미응답 멤버 리마인드 후 대기자 전환 여부를 확인하세요.
+                    신림 풋살파크 A구장에서 진행합니다. 미응답 멤버 리마인드와 대기자 전환 여부를 확인하세요.
                   </p>
                   <div className="mt-5 space-y-3 text-sm">
-                    <InfoRow icon={Timer} label="일정" value="6월 27일 (토) 오후 08:00" />
-                    <InfoRow icon={MapPin} label="장소" value="잠실 풋살파크 A구장" />
+                    <InfoRow icon={Timer} label="일정" value="6월 27일(목) 오후 08:00" />
+                    <InfoRow icon={MapPin} label="장소" value="신림 풋살파크 A구장" />
                     <InfoRow icon={Users} label="신청" value="참석 12명 · 대기 2명 · 미응답 4명" />
                   </div>
                   <div className="mt-5">
@@ -210,7 +331,8 @@ export default async function Home({
                   </div>
                   <p className="mt-4 text-3xl font-bold">4-2-3-1</p>
                   <p className="mt-3 text-sm leading-6 text-white/70">
-                    참석 확정 인원 기준 중앙 미드필더가 부족합니다. 대기자 중 CM 가능 멤버를 우선 확정하면 라인업 안정성이 높아집니다.
+                    참석 확정 인원 기준 중앙 미드필더가 부족합니다. 대기자 중 CM 가능 멤버를 우선 확정하면
+                    라인업 안정성이 높아집니다.
                   </p>
                   <div className="mt-4 flex flex-wrap gap-2">
                     <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/80">추천</span>
@@ -294,42 +416,20 @@ async function getCurrentSession() {
   }
 }
 
-function AuthActions({ nickname }: { nickname: string | null }) {
-  if (nickname) {
-    return (
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex h-11 items-center rounded-xl border border-line bg-white px-4 text-sm font-semibold text-secondary">
-          {nickname}
-        </span>
-        <form action="/api/auth/signout" method="post">
-          <button
-            className="inline-flex h-11 min-w-[96px] items-center justify-center rounded-xl bg-surfaceAlt px-4 text-sm font-semibold text-secondary transition hover:bg-line"
-            type="submit"
-          >
-            로그아웃
-          </button>
-        </form>
-      </div>
-    );
-  }
-
+function AuthActions({ nickname }: { nickname: string }) {
   return (
-    <div className="flex gap-2">
-      <button
-        className="inline-flex h-11 min-w-[108px] cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold text-disabled"
-        disabled
-        type="button"
-      >
-        <LogIn size={17} />
-        Google
-      </button>
-      <a
-        className="inline-flex h-11 min-w-[108px] items-center justify-center gap-2 rounded-xl bg-[#FEE500] px-4 text-sm font-bold text-[#191600] transition hover:brightness-95"
-        href="/auth/kakao-login"
-      >
-        <LogIn size={17} />
-        Kakao
-      </a>
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="inline-flex h-11 items-center rounded-xl border border-line bg-white px-4 text-sm font-semibold text-secondary">
+        {nickname}
+      </span>
+      <form action="/api/auth/signout" method="post">
+        <button
+          className="inline-flex h-11 min-w-[96px] items-center justify-center rounded-xl bg-surfaceAlt px-4 text-sm font-semibold text-secondary transition hover:bg-line"
+          type="submit"
+        >
+          로그아웃
+        </button>
+      </form>
     </div>
   );
 }
@@ -479,4 +579,14 @@ function MobileBottomNav() {
       ))}
     </nav>
   );
+}
+
+function statusDotClass(tone: string) {
+  const toneClass: Record<string, string> = {
+    warning: "bg-warning",
+    info: "bg-strategy",
+    danger: "bg-danger"
+  };
+
+  return toneClass[tone] ?? "bg-primary";
 }
