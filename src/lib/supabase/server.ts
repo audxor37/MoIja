@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { resolveSiteUrl } from "@/lib/site-url";
 
 function getSupabaseConfig() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -37,10 +38,9 @@ export async function createSupabaseServerClient() {
 }
 
 export function getSiteUrl(requestOrigin?: string) {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.VERCEL_PROJECT_PRODUCTION_URL?.replace(/^/, "https://mo-ija.vercel.app") ||
-    requestOrigin ||
-    "http://localhost:3000"
-  );
+  return resolveSiteUrl({
+    configuredSiteUrl: process.env.NEXT_PUBLIC_SITE_URL,
+    requestOrigin,
+    vercelProjectProductionUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL
+  });
 }
