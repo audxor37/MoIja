@@ -16,6 +16,7 @@ create table teams (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   sport_type text not null default 'futsal',
+  invite_code text unique not null default upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8)),
   created_by uuid not null references profiles(id),
   created_at timestamptz not null default now()
 );
@@ -154,6 +155,46 @@ $$;
 
 grant execute on function private.is_team_member(uuid, team_role[]) to authenticated;
 
+create or replace function public.join_team_by_invite_code(input_invite_code text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  normalized_code text;
+  target_team_id uuid;
+begin
+  if auth.uid() is null then
+    raise exception 'authentication required';
+  end if;
+
+  normalized_code := upper(regexp_replace(coalesce(input_invite_code, ''), '[^a-zA-Z0-9]', '', 'g'));
+
+  if normalized_code = '' then
+    raise exception 'invite code required';
+  end if;
+
+  select id
+    into target_team_id
+    from teams
+   where invite_code = normalized_code;
+
+  if target_team_id is null then
+    raise exception 'team invite code not found';
+  end if;
+
+  insert into team_members (team_id, profile_id, role)
+  values (target_team_id, auth.uid(), 'member')
+  on conflict (team_id, profile_id) do nothing;
+
+  return target_team_id;
+end;
+$$;
+
+revoke all on function public.join_team_by_invite_code(text) from public;
+grant execute on function public.join_team_by_invite_code(text) to authenticated;
+
 create or replace function private.touch_updated_at()
 returns trigger
 language plpgsql
@@ -229,8 +270,22 @@ create policy "team_members_insert_manager"
 on team_members for insert
 to authenticated
 with check (
+  role <> 'owner'
+  and private.is_team_member(team_id, array['owner', 'manager']::team_role[])
+);
+
+create policy "team_members_insert_owner_after_create"
+on team_members for insert
+to authenticated
+with check (
   profile_id = auth.uid()
-  or private.is_team_member(team_id, array['owner', 'manager']::team_role[])
+  and role = 'owner'
+  and exists (
+    select 1
+    from teams
+    where teams.id = team_members.team_id
+      and teams.created_by = auth.uid()
+  )
 );
 
 create policy "team_members_update_manager"
