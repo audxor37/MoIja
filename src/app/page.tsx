@@ -5,7 +5,6 @@ import {
   CalendarPlus,
   CheckCircle2,
   ClipboardCheck,
-  Copy,
   Grid2X2,
   KeyRound,
   LogIn,
@@ -21,6 +20,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { createOrganizerTeam, joinTeamByInvite } from "@/app/onboarding/actions";
+import { InviteCodeCopyButton } from "@/components/invite-code-copy-button";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const navItems = [
@@ -92,7 +92,7 @@ export default async function Home({
 }) {
   const params = await searchParams;
   const authError = params?.auth_error;
-  const authMessage = authError ? authMessages[authError] || decodeURIComponent(authError) : null;
+  const authMessage = authError ? authMessages[authError] : null;
   const onboardingError = params?.onboarding_error ? onboardingErrors[params.onboarding_error] : null;
   const onboardingMessage = params?.onboarding_message ?? null;
   const session = await getCurrentSession();
@@ -132,27 +132,19 @@ function PublicHome({ authMessage }: { authMessage: string | null }) {
             <MessageCircle size={17} />
             카카오 로그인
           </Link>
-          <Link
-            className="hidden h-11 items-center justify-center gap-2 rounded-xl bg-surfaceAlt px-4 text-sm font-bold text-secondary transition hover:bg-line sm:inline-flex"
-            href="/auth/password"
-          >
-            <KeyRound size={17} />
-            일반 로그인
-          </Link>
         </div>
       </header>
 
-      <section className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_430px] lg:items-center lg:py-14">
-        <div>
+      <section className="mx-auto grid w-full max-w-5xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-center lg:py-12">
+        <section className="rounded-2xl bg-white p-5 shadow-card sm:p-7">
           <span className="inline-flex h-8 items-center rounded-full bg-[#E8F7EE] px-3 text-xs font-bold text-primary">
-            축구/풋살 모임 운영 SaaS
+            로그인 필요
           </span>
-          <h1 className="mt-4 max-w-3xl text-[34px] font-bold leading-[1.18] sm:text-[46px]">
-            참석 약속이 지켜지는 팀 문화를 만듭니다
+          <h1 className="mt-4 text-[32px] font-bold leading-[1.18] sm:text-[42px]">
+            모임 참석을 확인하려면 먼저 로그인하세요
           </h1>
-          <p className="mt-4 max-w-2xl text-base font-semibold leading-8 text-secondary">
-            MoIja는 경기 생성보다 참석 신뢰도, 노쇼 감소, 운영 자동화에 집중합니다. 운영자는 미응답과
-            대기자를 먼저 보고, 멤버는 자신의 참석 상태와 기록을 빠르게 확인합니다.
+          <p className="mt-4 text-base font-semibold leading-8 text-secondary">
+            초대받은 모임의 참석 여부, 대기 상태, 리마인드, 내 기록은 로그인 후 바로 확인할 수 있습니다.
           </p>
 
           {authMessage ? (
@@ -161,79 +153,89 @@ function PublicHome({ authMessage }: { authMessage: string | null }) {
             </div>
           ) : null}
 
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <div className="mt-6 grid gap-3">
             <Link
-              className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-base font-bold text-white shadow-card transition hover:bg-[#12843D]"
+              className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#FEE500] px-5 text-base font-black text-[#191600] shadow-sm transition hover:brightness-95"
               href="/auth/kakao-login"
             >
               <MessageCircle size={20} />
-              카카오로 시작하기
+              카카오로 계속하기
             </Link>
             <Link
-              className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl border border-line bg-white px-5 text-base font-bold text-secondary transition hover:bg-surfaceAlt"
+              className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl border border-line bg-surfaceAlt px-5 text-sm font-black text-secondary transition hover:bg-line"
               href="/auth/password"
             >
-              <KeyRound size={20} />
-              일반 계정으로 시작
+              <KeyRound size={18} />
+              이메일로 로그인
             </Link>
           </div>
 
-          <div className="mt-6 flex flex-wrap gap-2 text-xs font-bold text-secondary">
-            <span className="rounded-full bg-white px-3 py-2 shadow-soft">Kakao ID</span>
-            <span className="rounded-full bg-white px-3 py-2 shadow-soft">이메일</span>
-            <span className="rounded-full bg-white px-3 py-2 shadow-soft">닉네임</span>
-            <span className="rounded-full bg-white px-3 py-2 shadow-soft">프로필 이미지</span>
-            <span className="rounded-full bg-[#E8F3FF] px-3 py-2 text-strategy shadow-soft">필수 정보만 저장</span>
-          </div>
-        </div>
-
-        <section id="preview" className="rounded-2xl bg-white p-5 shadow-card">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-bold uppercase text-strategy">Today</p>
-              <h2 className="mt-1 text-xl font-bold">운영자가 먼저 볼 일</h2>
+          <div className="mt-5 rounded-2xl border border-line bg-surfaceAlt p-4">
+            <div className="flex gap-3">
+              <KeyRound className="mt-0.5 shrink-0 text-strategy" size={20} />
+              <div>
+                <p className="text-sm font-bold">초대 코드가 있나요?</p>
+                <p className="mt-1 text-sm font-semibold leading-6 text-secondary">
+                  로그인 후 받은 코드나 링크를 입력하면 멤버로 바로 참여할 수 있습니다.
+                </p>
+              </div>
             </div>
-            <Activity className="text-primary" size={24} />
           </div>
 
-          <div className="mt-5 grid gap-3">
+          <p className="mt-5 text-xs font-semibold leading-5 text-muted">
+            Kakao ID, 닉네임, 프로필 이미지 외 민감정보는 저장하지 않습니다.
+          </p>
+        </section>
+
+        <aside className="grid gap-4">
+          <section className="rounded-2xl bg-navy p-5 text-white shadow-card">
+            <div>
+              <p className="text-xs font-bold uppercase text-white/55">After Login</p>
+              <h2 className="mt-2 text-2xl font-bold leading-8">오늘 필요한 참석 행동만 먼저 보여줍니다</h2>
+            </div>
+
+            <div className="mt-5 grid gap-3">
+              {[
+                ["참석 여부 선택", "다음 모임에 갈 수 있는지 바로 표시"],
+                ["대기/불참 확인", "변경된 상태와 리마인드를 한 번에 확인"],
+                ["내 신뢰도 기록", "출석, 취소, 노쇼 이력을 개인 기록으로 확인"]
+              ].map(([title, description]) => (
+                <div className="rounded-xl bg-white/10 p-4" key={title}>
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="mt-0.5 shrink-0 text-[#86EFAC]" size={19} />
+                    <div>
+                      <p className="text-sm font-bold">{title}</p>
+                      <p className="mt-1 text-sm font-semibold leading-6 text-white/68">{description}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-2xl bg-white p-5 shadow-card">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase text-strategy">Preview</p>
+                <h2 className="mt-1 text-xl font-bold">로그인 후 첫 화면</h2>
+              </div>
+              <Activity className="text-primary" size={24} />
+            </div>
             {[
-              ["미응답 4명", "마감 전 리마인드 필요", "warning"],
-              ["대기자 2명", "취소 발생 시 자동 안내", "info"],
-              ["노쇼 위험 1명", "최근 취소 이력 확인", "danger"]
+              ["다음 모임", "목요일 오후 8:00 풋살"],
+              ["내 상태", "아직 응답하지 않음"],
+              ["팀 응답률", "78%"]
             ].map(([title, description, tone]) => (
-              <div className="rounded-xl border border-line bg-surfaceAlt p-4" key={title}>
+              <div className="mt-3 rounded-xl border border-line bg-surfaceAlt p-4" key={title}>
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-base font-bold">{title}</p>
-                  <span className={`h-2.5 w-2.5 rounded-full ${statusDotClass(tone)}`} />
+                  <span className={`h-2.5 w-2.5 rounded-full ${statusDotClass(tone ?? "info")}`} />
                 </div>
                 <p className="mt-1 text-sm font-semibold text-secondary">{description}</p>
               </div>
             ))}
-          </div>
-
-          <div className="mt-5 rounded-2xl bg-navy p-5 text-white">
-            <p className="text-sm font-semibold text-white/60">다음 경기 응답률</p>
-            <p className="mt-2 text-4xl font-bold">78%</p>
-            <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-white/12">
-              <div className="h-full w-[78%] rounded-full bg-[#22C55E]" />
-            </div>
-          </div>
-        </section>
-      </section>
-
-      <section className="mx-auto grid w-full max-w-6xl gap-4 px-4 pb-10 sm:px-6 md:grid-cols-3">
-        {[
-          ["노쇼 감소", "마감 전 미응답, 지각 취소, 대기 전환을 운영자가 놓치지 않게 정리합니다."],
-          ["신뢰도 기록", "출석 변경 이력을 남겨 시즌 통계와 멤버 신뢰도 계산의 기반을 만듭니다."],
-          ["모바일 우선", "참석 신청, 상태 변경, 리마인드 같은 핵심 행동을 1~2번 안에 처리합니다."]
-        ].map(([title, description]) => (
-          <article className="rounded-2xl bg-white p-5 shadow-card" key={title}>
-            <CheckCircle2 className="text-primary" size={22} />
-            <h2 className="mt-4 text-lg font-bold">{title}</h2>
-            <p className="mt-2 text-sm font-semibold leading-6 text-secondary">{description}</p>
-          </article>
-        ))}
+          </section>
+        </aside>
       </section>
     </main>
   );
@@ -442,14 +444,7 @@ function OperatorDashboard({
                 </p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
-                <button
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#E8F3FF] px-4 text-sm font-semibold text-strategy transition hover:bg-[#DBEAFF]"
-                  title={team.inviteCode ? `초대 코드: ${team.inviteCode}` : "초대 코드가 아직 없습니다"}
-                  type="button"
-                >
-                  <Copy size={18} />
-                  {team.inviteCode ? `초대 코드 ${team.inviteCode}` : "참가 링크"}
-                </button>
+                <InviteCodeCopyButton inviteCode={team.inviteCode} />
                 <Link
                   className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-base font-bold text-white shadow-card transition hover:bg-[#12843D]"
                   href="/meetings/new"
