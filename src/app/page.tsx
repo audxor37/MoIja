@@ -92,7 +92,7 @@ export default async function Home({
 }) {
   const params = await searchParams;
   const authError = params?.auth_error;
-  const authMessage = authError ? authMessages[authError] : null;
+  const authMessage = authError ? authMessages[authError] || decodeURIComponent(authError) : null;
   const onboardingError = params?.onboarding_error ? onboardingErrors[params.onboarding_error] : null;
   const onboardingMessage = params?.onboarding_message ?? null;
   const session = await getCurrentSession();
@@ -132,6 +132,13 @@ function PublicHome({ authMessage }: { authMessage: string | null }) {
             <MessageCircle size={17} />
             카카오 로그인
           </Link>
+          <Link
+            className="hidden h-11 items-center justify-center gap-2 rounded-xl bg-surfaceAlt px-4 text-sm font-bold text-secondary transition hover:bg-line sm:inline-flex"
+            href="/auth/password"
+          >
+            <KeyRound size={17} />
+            일반 로그인
+          </Link>
         </div>
       </header>
 
@@ -162,16 +169,18 @@ function PublicHome({ authMessage }: { authMessage: string | null }) {
               <MessageCircle size={20} />
               카카오로 시작하기
             </Link>
-            <a
+            <Link
               className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl border border-line bg-white px-5 text-base font-bold text-secondary transition hover:bg-surfaceAlt"
-              href="#preview"
+              href="/auth/password"
             >
-              운영 흐름 보기
-            </a>
+              <KeyRound size={20} />
+              일반 계정으로 시작
+            </Link>
           </div>
 
           <div className="mt-6 flex flex-wrap gap-2 text-xs font-bold text-secondary">
             <span className="rounded-full bg-white px-3 py-2 shadow-soft">Kakao ID</span>
+            <span className="rounded-full bg-white px-3 py-2 shadow-soft">이메일</span>
             <span className="rounded-full bg-white px-3 py-2 shadow-soft">닉네임</span>
             <span className="rounded-full bg-white px-3 py-2 shadow-soft">프로필 이미지</span>
             <span className="rounded-full bg-[#E8F3FF] px-3 py-2 text-strategy shadow-soft">필수 정보만 저장</span>

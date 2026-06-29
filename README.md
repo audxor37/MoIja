@@ -43,7 +43,7 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
 ## MVP 범위
 
-1. Kakao 로그인
+1. Kakao 로그인과 이메일/비밀번호 로그인
 2. 팀 생성 및 멤버 관리
 3. 경기 생성
 4. 참석 신청 및 참석 처리
