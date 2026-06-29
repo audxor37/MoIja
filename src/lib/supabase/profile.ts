@@ -18,11 +18,12 @@ export function profileFromKakaoUser(user: User): ProfileRow {
     readString(kakaoIdentity?.id) ||
     readString(metadata.provider_id) ||
     readString(metadata.sub) ||
-    user.id;
+    `email:${user.id}`;
   const nickname =
     readString(metadata.nickname) ||
     readString(metadata.name) ||
     readString(metadata.full_name) ||
+    readString(user.email?.split("@")[0]) ||
     "MoIja member";
   const avatarUrl = readString(metadata.avatar_url) || readString(metadata.picture);
 
