@@ -3,24 +3,26 @@ import {
   BarChart3,
   Bell,
   CalendarPlus,
-  CheckCircle2,
   ClipboardCheck,
   Grid2X2,
   KeyRound,
   LogIn,
   MapPin,
   MessageCircle,
+  Pencil,
   Plus,
-  Send,
   ShieldCheck,
   Timer,
+  Trash2,
   Trophy,
   UserRoundPlus,
   Users
 } from "lucide-react";
 import Link from "next/link";
 import { createOrganizerTeam, joinTeamByInvite } from "@/app/onboarding/actions";
+import { deleteMeeting } from "@/app/meetings/actions";
 import { InviteCodeCopyButton } from "@/components/invite-code-copy-button";
+import { formatMeetingDateTime } from "@/lib/meetings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const navItems = [
@@ -30,51 +32,30 @@ const navItems = [
   { label: "공지/리마인드", icon: Bell, href: "/" }
 ];
 
-const summary = [
-  { label: "참석 확정", value: "12", unit: "명", tone: "success", note: "확정 인원" },
-  { label: "미응답", value: "4", unit: "명", tone: "warning", note: "리마인드 필요" },
-  { label: "예상 참석", value: "15", unit: "명", tone: "info", note: "대기 포함" },
-  { label: "응답률", value: "78", unit: "%", tone: "neutral", note: "지난 경기 대비 +6%" }
-];
-
-const meetings = [
-  {
-    title: "목요일 풋살 정기전",
-    date: "6월 27일(목) 오후 08:00",
-    place: "신림 풋살파크 A구장",
-    status: "개최 확정",
-    statusTone: "success",
-    attendance: { attending: 12, pending: 4, absent: 2, expected: 15 },
-    progress: "78%",
-    action: "미응답 4명 리마인드"
-  },
-  {
-    title: "일요일 7:7 친선전",
-    date: "6월 28일(일) 오전 10:30",
-    place: "성암 보조구장",
-    status: "모집중",
-    statusTone: "info",
-    attendance: { attending: 9, pending: 6, absent: 1, expected: 12 },
-    progress: "60%",
-    action: "대기자 2명 확인"
-  }
-];
-
 const authMessages: Record<string, string> = {
-  callback_failed: "카카오 로그인 처리 중 문제가 발생했습니다. Supabase와 Kakao 설정을 확인하세요.",
-  kakao_start_failed: "카카오 로그인 주소를 생성하지 못했습니다. Kakao provider 설정을 확인하세요.",
-  missing_code: "로그인 인증 코드가 전달되지 않았습니다. 다시 시도하세요.",
-  profile_failed: "로그인은 완료됐지만 프로필 저장에 실패했습니다. profiles RLS와 스키마를 확인하세요.",
-  user_missing: "로그인 세션을 확인하지 못했습니다. 다시 시도하세요.",
-  supabase_env_missing: "Supabase 환경 변수가 아직 설정되지 않았습니다. .env.local을 먼저 준비하세요."
+  callback_failed: "카카오 로그인 처리 중 문제가 발생했습니다. Supabase와 Kakao 설정을 확인해 주세요.",
+  kakao_start_failed: "카카오 로그인 주소를 만들지 못했습니다. Kakao provider 설정을 확인해 주세요.",
+  missing_code: "로그인 인증 코드가 전달되지 않았습니다. 다시 시도해 주세요.",
+  profile_failed: "로그인은 완료됐지만 프로필 저장에 실패했습니다. profiles RLS와 스키마를 확인해 주세요.",
+  user_missing: "로그인 세션을 확인하지 못했습니다. 다시 시도해 주세요.",
+  supabase_env_missing: "Supabase 환경 변수가 아직 설정되지 않았습니다. .env.local을 먼저 준비해 주세요."
 };
 
 const onboardingErrors: Record<string, string> = {
-  auth_required: "로그인 세션을 확인하지 못했습니다. 다시 카카오로 로그인하세요.",
-  join_failed: "초대 코드를 찾지 못했습니다. 운영자에게 받은 코드나 링크를 다시 확인하세요.",
-  owner_member_failed: "팀은 생성됐지만 운영자 권한 연결에 실패했습니다. team_members RLS를 확인하세요.",
-  profile_failed: "프로필 저장에 실패했습니다. profiles RLS와 스키마를 확인하세요.",
-  team_create_failed: "팀 생성에 실패했습니다. teams 스키마와 RLS를 확인하세요."
+  auth_required: "로그인 세션을 확인하지 못했습니다. 다시 로그인해 주세요.",
+  join_failed: "초대 코드를 찾지 못했습니다. 운영자에게 받은 코드를 다시 확인해 주세요.",
+  owner_member_failed: "팀은 생성됐지만 운영자 권한 연결에 실패했습니다. team_members RLS를 확인해 주세요.",
+  profile_failed: "프로필 저장에 실패했습니다. profiles RLS와 스키마를 확인해 주세요.",
+  team_create_failed: "팀 생성에 실패했습니다. teams 스키마와 RLS를 확인해 주세요."
+};
+
+const meetingMessages: Record<string, string> = {
+  auth_required: "로그인이 필요합니다. 다시 로그인해 주세요.",
+  permission_denied: "모임을 관리할 Owner 또는 Manager 권한이 필요합니다.",
+  create_failed: "모임 저장에 실패했습니다. Supabase 마이그레이션 적용 여부를 확인해 주세요.",
+  update_failed: "모임 수정에 실패했습니다.",
+  delete_failed: "모임 삭제에 실패했습니다.",
+  missing_meeting: "모임 정보를 찾지 못했습니다."
 };
 
 const bottomNav = [
@@ -85,16 +66,53 @@ const bottomNav = [
   { label: "내 정보", icon: ShieldCheck }
 ];
 
+type DashboardMeeting = {
+  id: string;
+  title: string;
+  startsAt: string;
+  locationNote: string | null;
+  capacity: number | null;
+  allowWaitlist: boolean;
+  attendanceMethod: string;
+  attendanceClosesAt: string | null;
+};
+
+type TeamSession = {
+  id: string;
+  name: string;
+  role: string;
+  inviteCode: string | null;
+  meetings: DashboardMeeting[];
+};
+
+type MatchRow = {
+  id: string;
+  title: string;
+  starts_at: string;
+  location_note?: string | null;
+  capacity: number | null;
+  allow_waitlist?: boolean | null;
+  attendance_method: string;
+  attendance_closes_at: string | null;
+};
+
 export default async function Home({
   searchParams
 }: {
-  searchParams?: Promise<{ auth_error?: string; onboarding_error?: string; onboarding_message?: string }>;
+  searchParams?: Promise<{
+    auth_error?: string;
+    onboarding_error?: string;
+    onboarding_message?: string;
+    meeting_error?: string;
+    meeting_message?: string;
+  }>;
 }) {
   const params = await searchParams;
-  const authError = params?.auth_error;
-  const authMessage = authError ? authMessages[authError] : null;
+  const authMessage = params?.auth_error ? authMessages[params.auth_error] : null;
   const onboardingError = params?.onboarding_error ? onboardingErrors[params.onboarding_error] : null;
+  const meetingError = params?.meeting_error ? meetingMessages[params.meeting_error] : null;
   const onboardingMessage = params?.onboarding_message ?? null;
+  const meetingMessage = params?.meeting_message ?? null;
   const session = await getCurrentSession();
 
   if (!session.nickname) {
@@ -112,7 +130,7 @@ export default async function Home({
 
   return (
     <OperatorDashboard
-      authMessage={authMessage}
+      message={authMessage || meetingError || meetingMessage}
       nickname={session.nickname}
       team={session.team}
     />
@@ -141,16 +159,16 @@ function PublicHome({ authMessage }: { authMessage: string | null }) {
             로그인 필요
           </span>
           <h1 className="mt-4 text-[32px] font-bold leading-[1.18] sm:text-[42px]">
-            모임 참석을 확인하려면 먼저 로그인하세요
+            모임 참석을 운영하려면 먼저 로그인하세요
           </h1>
           <p className="mt-4 text-base font-semibold leading-8 text-secondary">
-            초대받은 모임의 참석 여부, 대기 상태, 리마인드, 내 기록은 로그인 후 바로 확인할 수 있습니다.
+            초대받은 모임의 참석 여부, 대기 상태, 리마인드, 내 기록을 로그인 후 바로 확인할 수 있습니다.
           </p>
 
           {authMessage ? (
-            <div className="mt-5 rounded-2xl border border-[#FBD6A3] bg-[#FFF7E8] px-5 py-4 text-sm font-semibold text-[#8A5200]">
+            <Notice tone="warning" className="mt-5">
               {authMessage}
-            </div>
+            </Notice>
           ) : null}
 
           <div className="mt-6 grid gap-3">
@@ -169,85 +187,13 @@ function PublicHome({ authMessage }: { authMessage: string | null }) {
               이메일로 로그인
             </Link>
           </div>
-
-          <div className="mt-5 rounded-2xl border border-line bg-surfaceAlt p-4">
-            <div className="flex gap-3">
-              <KeyRound className="mt-0.5 shrink-0 text-strategy" size={20} />
-              <div>
-                <p className="text-sm font-bold">초대 코드가 있나요?</p>
-                <p className="mt-1 text-sm font-semibold leading-6 text-secondary">
-                  로그인 후 받은 코드나 링크를 입력하면 멤버로 바로 참여할 수 있습니다.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <p className="mt-5 text-xs font-semibold leading-5 text-muted">
-            Kakao ID, 닉네임, 프로필 이미지 외 민감정보는 저장하지 않습니다.
-          </p>
         </section>
-
-        <aside className="grid gap-4">
-          <section className="rounded-2xl bg-navy p-5 text-white shadow-card">
-            <div>
-              <p className="text-xs font-bold uppercase text-white/55">After Login</p>
-              <h2 className="mt-2 text-2xl font-bold leading-8">오늘 필요한 참석 행동만 먼저 보여줍니다</h2>
-            </div>
-
-            <div className="mt-5 grid gap-3">
-              {[
-                ["참석 여부 선택", "다음 모임에 갈 수 있는지 바로 표시"],
-                ["대기/불참 확인", "변경된 상태와 리마인드를 한 번에 확인"],
-                ["내 신뢰도 기록", "출석, 취소, 노쇼 이력을 개인 기록으로 확인"]
-              ].map(([title, description]) => (
-                <div className="rounded-xl bg-white/10 p-4" key={title}>
-                  <div className="flex items-start gap-3">
-                    <CheckCircle2 className="mt-0.5 shrink-0 text-[#86EFAC]" size={19} />
-                    <div>
-                      <p className="text-sm font-bold">{title}</p>
-                      <p className="mt-1 text-sm font-semibold leading-6 text-white/68">{description}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="rounded-2xl bg-white p-5 shadow-card">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-bold uppercase text-strategy">Preview</p>
-                <h2 className="mt-1 text-xl font-bold">로그인 후 첫 화면</h2>
-              </div>
-              <Activity className="text-primary" size={24} />
-            </div>
-            {[
-              ["다음 모임", "목요일 오후 8:00 풋살"],
-              ["내 상태", "아직 응답하지 않음"],
-              ["팀 응답률", "78%"]
-            ].map(([title, description, tone]) => (
-              <div className="mt-3 rounded-xl border border-line bg-surfaceAlt p-4" key={title}>
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-base font-bold">{title}</p>
-                  <span className={`h-2.5 w-2.5 rounded-full ${statusDotClass(tone ?? "info")}`} />
-                </div>
-                <p className="mt-1 text-sm font-semibold text-secondary">{description}</p>
-              </div>
-            ))}
-          </section>
-        </aside>
       </section>
     </main>
   );
 }
 
-function OnboardingStart({
-  message,
-  nickname
-}: {
-  message: string | null;
-  nickname: string;
-}) {
+function OnboardingStart({ message, nickname }: { message: string | null; nickname: string }) {
   return (
     <main className="min-h-screen bg-app text-ink">
       <header className="border-b border-line bg-white/95 px-4 py-4 backdrop-blur sm:px-6">
@@ -263,29 +209,17 @@ function OnboardingStart({
             첫 시작 설정
           </span>
           <h1 className="mt-4 text-[32px] font-bold leading-[1.18] sm:text-[42px]">
-            지금 하려는 일을 선택해주세요
+            지금 하려는 일을 선택해 주세요
           </h1>
           <p className="mt-4 max-w-xl text-base font-semibold leading-8 text-secondary">
-            계정을 운영자와 참석자로 나누지 않습니다. 팀마다 역할을 다르게 가질 수 있도록 첫 행동만
-            선택하고, 권한은 팀 멤버십에 저장합니다.
+            계정은 아직 운영자나 참석자로 나뉘지 않았습니다. 팀마다 역할을 다르게 가질 수 있도록 첫 행동만 선택합니다.
           </p>
 
           {message ? (
-            <div className="mt-5 rounded-2xl border border-[#FBD6A3] bg-[#FFF7E8] px-5 py-4 text-sm font-semibold text-[#8A5200]">
+            <Notice tone="warning" className="mt-5">
               {message}
-            </div>
+            </Notice>
           ) : null}
-
-          <div className="mt-6 grid gap-3 text-sm font-semibold text-secondary">
-            <div className="flex gap-3 rounded-2xl bg-white p-4 shadow-soft">
-              <ShieldCheck className="mt-0.5 shrink-0 text-primary" size={20} />
-              <p>팀을 만들면 자동으로 Owner가 되고, 초대 코드는 새 멤버 진입에 사용됩니다.</p>
-            </div>
-            <div className="flex gap-3 rounded-2xl bg-white p-4 shadow-soft">
-              <Users className="mt-0.5 shrink-0 text-strategy" size={20} />
-              <p>초대받은 사람은 기본 Member로 들어오며, 운영자가 나중에 권한을 조정할 수 있습니다.</p>
-            </div>
-          </div>
         </div>
 
         <div className="grid gap-5">
@@ -298,7 +232,7 @@ function OnboardingStart({
                 <p className="text-sm font-bold text-primary">모임을 운영할게요</p>
                 <h2 className="mt-1 text-2xl font-bold">새 팀을 만들고 참석 관리를 시작합니다</h2>
                 <p className="mt-2 text-sm font-semibold leading-6 text-secondary">
-                  팀 이름과 종목만 먼저 저장합니다. 장소, 경기, 출석 방식은 다음 단계에서 확장합니다.
+                  팀 이름과 종목만 먼저 저장합니다. 장소와 모임은 다음 단계에서 확장합니다.
                 </p>
               </div>
             </div>
@@ -306,12 +240,7 @@ function OnboardingStart({
             <form action={createOrganizerTeam} className="mt-6 grid gap-4">
               <label className="grid gap-2">
                 <span className="text-sm font-semibold text-secondary">팀 이름</span>
-                <input
-                  className="field-input"
-                  name="teamName"
-                  placeholder="예: 목요 풋살 크루"
-                  type="text"
-                />
+                <input className="field-input" name="teamName" placeholder="예: 목요일 풋살 크루" type="text" />
               </label>
               <label className="grid gap-2">
                 <span className="text-sm font-semibold text-secondary">종목</span>
@@ -342,7 +271,7 @@ function OnboardingStart({
                 <p className="text-sm font-bold text-strategy">초대받은 모임에 참석할게요</p>
                 <h2 className="mt-1 text-2xl font-bold">초대 코드로 팀에 들어갑니다</h2>
                 <p className="mt-2 text-sm font-semibold leading-6 text-secondary">
-                  운영자에게 받은 코드나 링크를 입력하면 Member로 가입됩니다.
+                  운영자에게 받은 코드나 링크를 입력하면 Member로 참여합니다.
                 </p>
               </div>
             </div>
@@ -352,12 +281,7 @@ function OnboardingStart({
                 <span className="text-sm font-semibold text-secondary">초대 코드 또는 링크</span>
                 <div className="relative">
                   <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
-                  <input
-                    className="field-input w-full pl-11"
-                    name="inviteCode"
-                    placeholder="예: ABCD1234"
-                    type="text"
-                  />
+                  <input className="field-input w-full pl-11" name="inviteCode" placeholder="예: ABCD1234" type="text" />
                 </div>
               </label>
               <button
@@ -375,22 +299,18 @@ function OnboardingStart({
   );
 }
 
-type TeamSession = {
-  id: string;
-  name: string;
-  role: string;
-  inviteCode: string | null;
-};
-
 function OperatorDashboard({
-  authMessage,
+  message,
   nickname,
   team
 }: {
-  authMessage: string | null;
+  message: string | null;
   nickname: string;
   team: TeamSession;
 }) {
+  const nextMeeting = team.meetings[0] ?? null;
+  const totalCapacity = team.meetings.reduce((sum, meeting) => sum + (meeting.capacity ?? 0), 0);
+
   return (
     <main className="min-h-screen bg-app pb-24 text-ink lg:pb-0">
       <div className="lg:grid lg:min-h-screen lg:grid-cols-[280px_1fr]">
@@ -403,7 +323,9 @@ function OperatorDashboard({
           </nav>
           <div className="mt-8 hidden rounded-2xl bg-navy p-5 text-white shadow-card lg:block">
             <p className="text-xs font-semibold uppercase text-white/55">Today</p>
-            <p className="mt-3 text-lg font-bold leading-7">미응답 4명에게 마감 전 리마인드가 필요합니다</p>
+            <p className="mt-3 text-lg font-bold leading-7">
+              {nextMeeting ? `${nextMeeting.title} 참석 응답을 확인하세요` : "첫 모임을 만들고 참석 흐름을 시작하세요"}
+            </p>
             <p className="mt-3 text-sm leading-6 text-white/64">노쇼 위험을 낮추는 운영 액션을 먼저 보여줍니다.</p>
           </div>
         </aside>
@@ -417,7 +339,7 @@ function OperatorDashboard({
                 </div>
                 <div>
                   <p className="text-base font-bold">운영자 대시보드</p>
-                  <p className="mt-1 text-sm text-secondary">{team.name}의 오늘 필요한 참석 관리 액션을 확인합니다.</p>
+                  <p className="mt-1 text-sm text-secondary">{team.name}의 참석 관리 액션을 확인합니다</p>
                 </div>
               </div>
               <AuthActions nickname={nickname} />
@@ -425,10 +347,10 @@ function OperatorDashboard({
           </header>
 
           <section className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-            {authMessage ? (
-              <div className="mb-6 rounded-2xl border border-[#FBD6A3] bg-[#FFF7E8] px-5 py-4 text-sm font-semibold text-[#8A5200]">
-                {authMessage}
-              </div>
+            {message ? (
+              <Notice tone="warning" className="mb-6">
+                {message}
+              </Notice>
             ) : null}
 
             <section className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
@@ -437,10 +359,10 @@ function OperatorDashboard({
                   {team.role === "owner" ? "Owner 대시보드" : "팀 대시보드"}
                 </span>
                 <h1 className="mt-3 max-w-3xl text-[30px] font-bold leading-10 sm:text-[34px]">
-                  {team.name}의 참석 신뢰도를 한눈에 관리합니다
+                  {team.name}의 모임과 참석 신뢰도를 관리합니다
                 </h1>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-secondary sm:text-base sm:leading-7">
-                  미응답, 대기, 취소 흐름을 먼저 보여주고 운영자가 바로 리마인드할 수 있게 정리했습니다.
+                  생성한 모임을 기준으로 참석 마감, 대기 허용, 출석 방식을 기록합니다.
                 </p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
@@ -456,9 +378,10 @@ function OperatorDashboard({
             </section>
 
             <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {summary.map((item) => (
-                <SummaryCard key={item.label} {...item} />
-              ))}
+              <SummaryCard label="등록된 모임" value={String(team.meetings.length)} unit="개" tone="success" note="운영 중" />
+              <SummaryCard label="예상 정원" value={String(totalCapacity)} unit="명" tone="info" note="합산 기준" />
+              <SummaryCard label="다음 모임" value={nextMeeting ? "1" : "0"} unit="개" tone="warning" note="가장 가까운 일정" />
+              <SummaryCard label="출석 방식" value={nextMeeting ? attendanceMethodLabel(nextMeeting.attendanceMethod) : "-"} unit="" tone="neutral" note="다음 모임 기준" />
             </section>
 
             <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_392px]">
@@ -466,17 +389,21 @@ function OperatorDashboard({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h2 className="text-xl font-bold">모임 목록</h2>
-                    <p className="mt-1 text-sm text-secondary">운영 액션이 필요한 순서로 정렬합니다.</p>
+                    <p className="mt-1 text-sm text-secondary">생성한 모임을 수정하거나 삭제할 수 있습니다.</p>
                   </div>
                   <span className="inline-flex w-fit items-center gap-2 rounded-full bg-surfaceAlt px-3 py-1 text-xs font-bold text-secondary">
                     <Timer size={14} />
-                    마감 6시간 전
+                    마감 시간 자동 계산
                   </span>
                 </div>
                 <div className="mt-5 grid gap-4">
-                  {meetings.map((meeting, index) => (
-                    <MeetingCard key={meeting.title} selected={index === 0} {...meeting} />
-                  ))}
+                  {team.meetings.length > 0 ? (
+                    team.meetings.map((meeting, index) => (
+                      <MeetingCard key={meeting.id} meeting={meeting} selected={index === 0} />
+                    ))
+                  ) : (
+                    <EmptyMeetings />
+                  )}
                 </div>
               </section>
 
@@ -485,44 +412,36 @@ function OperatorDashboard({
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <span className="inline-flex rounded-full bg-[#E8F7EE] px-3 py-1 text-xs font-bold text-primary">
-                        개최 확정
+                        다음 운영 액션
                       </span>
-                      <h2 className="mt-4 text-2xl font-bold leading-8">목요일 풋살 정기전</h2>
+                      <h2 className="mt-4 text-2xl font-bold leading-8">
+                        {nextMeeting ? nextMeeting.title : "새 모임 생성"}
+                      </h2>
                     </div>
                     <Activity className="text-primary" size={24} />
                   </div>
-                  <p className="mt-3 text-sm leading-6 text-secondary">
-                    신림 풋살파크 A구장에서 진행합니다. 미응답 멤버 리마인드와 대기자 전환 여부를 확인하세요.
-                  </p>
-                  <div className="mt-5 space-y-3 text-sm">
-                    <InfoRow icon={Timer} label="일정" value="6월 27일(목) 오후 08:00" />
-                    <InfoRow icon={MapPin} label="장소" value="신림 풋살파크 A구장" />
-                    <InfoRow icon={Users} label="신청" value="참석 12명 · 대기 2명 · 미응답 4명" />
-                  </div>
-                  <div className="mt-5">
-                    <ProgressBar value="78%" />
-                    <p className="mt-2 text-xs font-semibold text-muted">응답률 78% · 목표 90%</p>
-                  </div>
-                  <button className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-white transition hover:bg-[#12843D]">
-                    <Send size={17} />
-                    미응답 리마인드
-                  </button>
+                  {nextMeeting ? (
+                    <div className="mt-5 space-y-3 text-sm">
+                      <InfoRow icon={Timer} label="일정" value={formatMeetingDateTime(nextMeeting.startsAt)} />
+                      <InfoRow icon={MapPin} label="장소" value={nextMeeting.locationNote ?? "장소 미정"} />
+                      <InfoRow icon={Users} label="운영" value={`${nextMeeting.capacity ?? "-"}명 · ${nextMeeting.allowWaitlist ? "대기 허용" : "대기 없음"}`} />
+                    </div>
+                  ) : (
+                    <p className="mt-4 text-sm font-semibold leading-7 text-secondary">
+                      첫 모임을 만들면 이 영역에서 마감, 장소, 참석 방식이 바로 보입니다.
+                    </p>
+                  )}
                 </section>
 
                 <section className="rounded-2xl bg-navy p-5 text-white shadow-card">
                   <div className="flex items-center gap-2">
                     <BarChart3 className="text-[#93C5FD]" size={20} />
-                    <h2 className="text-lg font-bold">전술/운영 인사이트</h2>
+                    <h2 className="text-lg font-bold">운영 인사이트</h2>
                   </div>
-                  <p className="mt-4 text-3xl font-bold">4-2-3-1</p>
+                  <p className="mt-4 text-3xl font-bold">CRUD 준비 완료</p>
                   <p className="mt-3 text-sm leading-6 text-white/70">
-                    참석 확정 인원 기준 중앙 미드필더가 부족합니다. 대기자 중 CM 가능 멤버를 우선 확정하면
-                    라인업 안정성이 높아집니다.
+                    모임 생성, 수정, 삭제가 기록되면 다음 단계에서 참석 응답과 신뢰도 계산을 붙일 수 있습니다.
                   </p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/80">추천</span>
-                    <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/80">대기자 전환</span>
-                  </div>
                 </section>
               </aside>
             </section>
@@ -534,6 +453,88 @@ function OperatorDashboard({
   );
 }
 
+async function getCurrentSession() {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { nickname: null, team: null };
+    }
+
+    const { data: profile } = await supabase.from("profiles").select("nickname").eq("id", user.id).maybeSingle();
+    const nickname =
+      profile?.nickname ||
+      (typeof user.user_metadata.nickname === "string" ? user.user_metadata.nickname : null) ||
+      (typeof user.user_metadata.name === "string" ? user.user_metadata.name : null) ||
+      "운영자";
+
+    const { data: membership } = await supabase
+      .from("team_members")
+      .select("role, teams(id, name, invite_code)")
+      .eq("profile_id", user.id)
+      .order("joined_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    type TeamRecord = { id: string; name: string; invite_code: string | null };
+    const typedMembership = membership as
+      | {
+          role?: string;
+          teams?: TeamRecord | TeamRecord[] | null;
+        }
+      | null;
+    const joinedTeam = Array.isArray(typedMembership?.teams)
+      ? typedMembership?.teams[0]
+      : typedMembership?.teams;
+
+    if (!joinedTeam || !typedMembership?.role) {
+      return { nickname, team: null };
+    }
+
+    const { data: matches, error: matchesError } = await supabase
+      .from("matches")
+      .select("id, title, starts_at, location_note, capacity, allow_waitlist, attendance_method, attendance_closes_at")
+      .eq("team_id", joinedTeam.id)
+      .order("starts_at", { ascending: true });
+
+    const { data: fallbackMatches } = matchesError
+      ? await supabase
+          .from("matches")
+          .select("id, title, starts_at, capacity, attendance_method, attendance_closes_at")
+          .eq("team_id", joinedTeam.id)
+          .order("starts_at", { ascending: true })
+      : { data: null };
+
+    const matchRows = ((matches ?? fallbackMatches ?? []) as MatchRow[]);
+    const meetings = matchRows.map((match) => ({
+      id: match.id,
+      title: match.title,
+      startsAt: match.starts_at,
+      locationNote: "location_note" in match ? match.location_note ?? null : null,
+      capacity: match.capacity,
+      allowWaitlist: "allow_waitlist" in match ? match.allow_waitlist ?? true : true,
+      attendanceMethod: match.attendance_method,
+      attendanceClosesAt: match.attendance_closes_at
+    }));
+
+    return {
+      nickname,
+      team: {
+        id: joinedTeam.id,
+        name: joinedTeam.name,
+        role: typedMembership.role,
+        inviteCode: joinedTeam.invite_code,
+        meetings
+      }
+    };
+  } catch {
+    return { nickname: null, team: null };
+  }
+}
+
 function Brand() {
   return (
     <div className="flex items-center gap-3">
@@ -542,7 +543,7 @@ function Brand() {
       </div>
       <div>
         <p className="text-lg font-bold leading-6">MoIja</p>
-        <p className="text-xs font-semibold text-muted">모임참석 운영 플랫폼</p>
+        <p className="text-xs font-semibold text-muted">모임 참석 운영 플랫폼</p>
       </div>
     </div>
   );
@@ -572,68 +573,6 @@ function NavButton({
   );
 }
 
-async function getCurrentSession() {
-  try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user }
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return { nickname: null, team: null };
-    }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("nickname")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    const nickname =
-      profile?.nickname ||
-      (typeof user.user_metadata.nickname === "string" ? user.user_metadata.nickname : null) ||
-      (typeof user.user_metadata.name === "string" ? user.user_metadata.name : null) ||
-      "운영자";
-
-    const { data: membership } = await supabase
-      .from("team_members")
-      .select("role, teams(id, name, invite_code)")
-      .eq("profile_id", user.id)
-      .order("joined_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    type TeamRecord = {
-      id: string;
-      name: string;
-      invite_code: string | null;
-    };
-
-    const typedMembership = membership as
-      | {
-          role?: string;
-          teams?: TeamRecord | TeamRecord[] | null;
-        }
-      | null;
-    const joinedTeam = Array.isArray(typedMembership?.teams)
-      ? typedMembership?.teams[0]
-      : typedMembership?.teams;
-    const team =
-      joinedTeam && typedMembership?.role
-        ? {
-            id: joinedTeam.id,
-            name: joinedTeam.name,
-            role: typedMembership.role,
-            inviteCode: joinedTeam.invite_code
-          }
-        : null;
-
-    return { nickname, team };
-  } catch {
-    return { nickname: null, team: null };
-  }
-}
-
 function AuthActions({ nickname }: { nickname: string }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -648,6 +587,21 @@ function AuthActions({ nickname }: { nickname: string }) {
           로그아웃
         </button>
       </form>
+    </div>
+  );
+}
+
+function Notice({
+  children,
+  className = ""
+}: {
+  children: React.ReactNode;
+  tone: "warning";
+  className?: string;
+}) {
+  return (
+    <div className={`rounded-2xl border border-[#FBD6A3] bg-[#FFF7E8] px-5 py-4 text-sm font-semibold text-[#8A5200] ${className}`}>
+      {children}
     </div>
   );
 }
@@ -680,37 +634,14 @@ function SummaryCard({
       </div>
       <p className="mt-3 flex items-end gap-1">
         <span className="text-[34px] font-bold leading-10">{value}</span>
-        <span className="pb-1 text-sm font-semibold text-secondary">{unit}</span>
+        {unit ? <span className="pb-1 text-sm font-semibold text-secondary">{unit}</span> : null}
       </p>
       <p className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-bold ${toneClass[tone]}`}>{note}</p>
     </article>
   );
 }
 
-function MeetingCard({
-  title,
-  date,
-  place,
-  status,
-  statusTone,
-  attendance,
-  progress,
-  action,
-  selected
-}: {
-  title: string;
-  date: string;
-  place: string;
-  status: string;
-  statusTone: string;
-  attendance: { attending: number; pending: number; absent: number; expected: number };
-  progress: string;
-  action: string;
-  selected?: boolean;
-}) {
-  const badgeClass =
-    statusTone === "success" ? "bg-[#E8F7EE] text-primary" : "bg-[#E8F3FF] text-strategy";
-
+function MeetingCard({ meeting, selected }: { meeting: DashboardMeeting; selected?: boolean }) {
   return (
     <article
       className={`rounded-2xl border bg-white p-4 transition ${
@@ -720,33 +651,68 @@ function MeetingCard({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-bold">{title}</h3>
-            <span className={`rounded-full px-3 py-1 text-xs font-bold ${badgeClass}`}>{status}</span>
+            <h3 className="text-lg font-bold">{meeting.title}</h3>
+            <span className="rounded-full bg-[#E8F7EE] px-3 py-1 text-xs font-bold text-primary">등록됨</span>
           </div>
           <p className="mt-2 text-sm text-secondary">
-            {date} · {place}
+            {formatMeetingDateTime(meeting.startsAt)} · {meeting.locationNote ?? "장소 미정"}
           </p>
         </div>
         <span className="inline-flex w-fit rounded-full bg-[#FFF4E5] px-3 py-1 text-xs font-bold text-warning">
-          {action}
+          {meeting.attendanceClosesAt ? `${formatMeetingDateTime(meeting.attendanceClosesAt)} 마감` : "마감 미정"}
         </span>
       </div>
-      <div className="mt-4 grid grid-cols-4 gap-2 text-center">
-        <StatusCount label="참석" value={attendance.attending} tone="text-primary" />
-        <StatusCount label="미응답" value={attendance.pending} tone="text-warning" />
-        <StatusCount label="불참" value={attendance.absent} tone="text-danger" />
-        <StatusCount label="예상" value={attendance.expected} tone="text-strategy" />
+      <div className="mt-4 grid gap-2 text-sm font-semibold text-secondary sm:grid-cols-3">
+        <StatusPill label="정원" value={meeting.capacity ? `${meeting.capacity}명` : "미정"} />
+        <StatusPill label="대기" value={meeting.allowWaitlist ? "허용" : "없음"} />
+        <StatusPill label="출석" value={attendanceMethodLabel(meeting.attendanceMethod)} />
       </div>
-      <ProgressBar value={progress} />
+      <div className="mt-4 flex flex-col gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
+        <Link
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-surfaceAlt px-4 text-sm font-bold text-secondary transition hover:bg-line"
+          href={`/meetings/${meeting.id}/edit`}
+        >
+          <Pencil size={16} />
+          수정
+        </Link>
+        <form action={deleteMeeting}>
+          <input name="meetingId" type="hidden" value={meeting.id} />
+          <button
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#FFD7D7] bg-white px-4 text-sm font-bold text-danger transition hover:bg-[#FFF1F1] sm:w-auto"
+            type="submit"
+          >
+            <Trash2 size={16} />
+            삭제
+          </button>
+        </form>
+      </div>
     </article>
   );
 }
 
-function StatusCount({ label, value, tone }: { label: string; value: number; tone: string }) {
+function StatusPill({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <p className={`text-lg font-bold ${tone}`}>{value}</p>
-      <p className="mt-1 text-xs font-semibold text-muted">{label}</p>
+    <div className="rounded-xl bg-surfaceAlt px-3 py-2">
+      <span className="text-xs text-muted">{label}</span>
+      <span className="ml-2 text-ink">{value}</span>
+    </div>
+  );
+}
+
+function EmptyMeetings() {
+  return (
+    <div className="rounded-2xl border border-dashed border-lineStrong bg-surfaceAlt p-6 text-center">
+      <p className="text-lg font-bold">아직 등록된 모임이 없습니다</p>
+      <p className="mt-2 text-sm font-semibold leading-6 text-secondary">
+        새 모임을 만들면 참석 마감과 운영 규칙이 이곳에 표시됩니다.
+      </p>
+      <Link
+        className="mt-5 inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-white"
+        href="/meetings/new"
+      >
+        <Plus size={17} />
+        첫 모임 만들기
+      </Link>
     </div>
   );
 }
@@ -772,14 +738,6 @@ function InfoRow({
   );
 }
 
-function ProgressBar({ value }: { value: string }) {
-  return (
-    <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-surfaceAlt">
-      <div className="h-full rounded-full bg-primary" style={{ width: value }} />
-    </div>
-  );
-}
-
 function MobileBottomNav() {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-line bg-white px-2 py-2 shadow-raised lg:hidden">
@@ -799,12 +757,13 @@ function MobileBottomNav() {
   );
 }
 
-function statusDotClass(tone: string) {
-  const toneClass: Record<string, string> = {
-    warning: "bg-warning",
-    info: "bg-strategy",
-    danger: "bg-danger"
+function attendanceMethodLabel(value: string) {
+  const labels: Record<string, string> = {
+    manual: "수동",
+    qr: "QR",
+    gps: "GPS",
+    gps_approval: "GPS 승인"
   };
 
-  return toneClass[tone] ?? "bg-primary";
+  return labels[value] ?? "수동";
 }

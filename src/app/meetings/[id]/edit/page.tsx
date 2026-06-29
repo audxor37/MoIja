@@ -1,0 +1,268 @@
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
+import { ArrowLeft, CalendarClock, MapPin, Save, Timer, Users } from "lucide-react";
+import { updateMeeting } from "@/app/meetings/actions";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+const messageMap: Record<string, string> = {
+  auth_required: "로그인이 필요합니다. 다시 로그인해 주세요.",
+  permission_denied: "모임을 수정할 Owner 또는 Manager 권한이 필요합니다.",
+  update_failed: "모임 수정에 실패했습니다.",
+  missing_meeting: "모임 정보를 찾지 못했습니다."
+};
+
+export default async function EditMeetingPage({
+  params,
+  searchParams
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ meeting_error?: string; meeting_message?: string }>;
+}) {
+  const { id } = await params;
+  const query = await searchParams;
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/?meeting_error=auth_required");
+  }
+
+  const { data: meeting, error: meetingError } = await supabase
+    .from("matches")
+    .select("id, title, starts_at, location_note, memo, capacity, allow_waitlist, attendance_method, attendance_closes_at")
+    .eq("id", id)
+    .maybeSingle();
+
+  const { data: fallbackMeeting } = meetingError
+    ? await supabase
+        .from("matches")
+        .select("id, title, starts_at, capacity, attendance_method, attendance_closes_at")
+        .eq("id", id)
+        .maybeSingle()
+    : { data: null };
+
+  const currentMeeting = (meeting ?? fallbackMeeting) as MeetingRecord | null;
+
+  if (!currentMeeting) {
+    notFound();
+  }
+
+  const defaults = toFormDefaults(currentMeeting as MeetingRecord);
+  const message =
+    query?.meeting_message || (query?.meeting_error ? messageMap[query.meeting_error] : null);
+
+  return (
+    <main className="min-h-screen bg-app text-ink">
+      <div className="mx-auto flex w-full max-w-5xl flex-col px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
+        <header className="flex items-center gap-3 border-b border-line pb-6">
+          <Link
+            aria-label="대시보드로 돌아가기"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-secondary shadow-soft transition hover:bg-surfaceAlt"
+            href="/"
+          >
+            <ArrowLeft size={20} />
+          </Link>
+          <div>
+            <span className="inline-flex h-7 items-center rounded-full bg-[#E8F3FF] px-3 text-xs font-bold text-strategy">
+              모임 수정
+            </span>
+            <h1 className="mt-2 text-[30px] font-bold leading-10">{currentMeeting.title}</h1>
+          </div>
+        </header>
+
+        {message ? (
+          <div className="mt-5 rounded-2xl border border-[#FBD6A3] bg-[#FFF7E8] px-5 py-4 text-sm font-semibold text-[#8A5200]">
+            {message}
+          </div>
+        ) : null}
+
+        <form action={updateMeeting} className="mt-6 grid gap-5 rounded-2xl bg-white p-5 shadow-card sm:p-6">
+          <input name="meetingId" type="hidden" value={currentMeeting.id} />
+
+          <section>
+            <SectionHeader eyebrow="기본 정보" title="모임 정보와 운영 메모를 수정합니다" />
+            <div className="mt-5 grid gap-4">
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold text-secondary">모임 이름</span>
+                <input className="field-input" name="title" defaultValue={currentMeeting.title} required type="text" />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold text-secondary">운영 메모</span>
+                <textarea
+                  className="min-h-32 resize-none rounded-[14px] border border-line bg-white px-4 py-3 text-sm font-semibold leading-6 outline-none transition placeholder:text-disabled focus:border-strategy focus:ring-4 focus:ring-[#2563EB]/10"
+                  name="memo"
+                  defaultValue={"memo" in currentMeeting ? currentMeeting.memo ?? "" : ""}
+                />
+              </label>
+            </div>
+          </section>
+
+          <section className="grid gap-4 md:grid-cols-2">
+            <FieldGroup icon={CalendarClock} title="일정">
+              <div className="grid gap-3">
+                <input className="field-input" name="startsOn" defaultValue={defaults.startsOn} required type="date" />
+                <input className="field-input" name="startsAt" defaultValue={defaults.startsAt} required type="time" />
+              </div>
+            </FieldGroup>
+            <FieldGroup icon={MapPin} title="장소">
+              <div className="grid gap-3">
+                <input className="field-input" name="placeName" defaultValue={defaults.placeName} placeholder="장소명" type="text" />
+                <input className="field-input" name="placeAddress" defaultValue={defaults.placeAddress} placeholder="주소 또는 지도 링크" type="text" />
+              </div>
+            </FieldGroup>
+          </section>
+
+          <section>
+            <SectionHeader eyebrow="운영 규칙" title="정원, 대기, 신청 마감을 수정합니다" />
+            <div className="mt-5 grid gap-4 md:grid-cols-3">
+              <label className="setup-field">
+                <span className="flex items-center gap-2 text-sm font-semibold text-secondary">
+                  <Users size={17} />
+                  정원
+                </span>
+                <input className="field-input bg-white" min="1" name="capacity" defaultValue={currentMeeting.capacity ?? ""} type="number" />
+              </label>
+              <label className="setup-field">
+                <span className="text-sm font-semibold text-secondary">대기 허용</span>
+                <select className="field-input bg-white" name="allowWaitlist" defaultValue={"allow_waitlist" in currentMeeting ? currentMeeting.allow_waitlist ? "on" : "" : "on"}>
+                  <option value="on">허용</option>
+                  <option value="">허용 안 함</option>
+                </select>
+              </label>
+              <label className="setup-field">
+                <span className="flex items-center gap-2 text-sm font-semibold text-secondary">
+                  <Timer size={17} />
+                  신청 마감
+                </span>
+                <select className="field-input bg-white" name="deadlineHours" defaultValue={defaults.deadlineHours}>
+                  <option value="6">시작 6시간 전</option>
+                  <option value="12">시작 12시간 전</option>
+                  <option value="24">시작 24시간 전</option>
+                </select>
+              </label>
+            </div>
+          </section>
+
+          <section>
+            <SectionHeader eyebrow="출석 방식" title="출석 확정 흐름을 수정합니다" />
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {[
+                ["manual", "운영자 확인"],
+                ["qr", "QR 체크"],
+                ["gps_approval", "GPS + 승인"]
+              ].map(([value, label]) => (
+                <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-line bg-white p-4 text-sm font-bold" key={value}>
+                  <input
+                    className="h-4 w-4 accent-primary"
+                    defaultChecked={currentMeeting.attendance_method === value}
+                    name="attendanceMethod"
+                    type="radio"
+                    value={value}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </section>
+
+          <div className="flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:justify-end">
+            <Link
+              className="inline-flex h-12 items-center justify-center rounded-xl bg-surfaceAlt px-5 text-sm font-semibold text-secondary transition hover:bg-line"
+              href="/"
+            >
+              취소
+            </Link>
+            <button
+              className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-base font-bold text-white shadow-card transition hover:bg-[#12843D]"
+              type="submit"
+            >
+              <Save size={18} />
+              수정 저장
+            </button>
+          </div>
+        </form>
+      </div>
+    </main>
+  );
+}
+
+type MeetingRecord = {
+  id: string;
+  title: string;
+  starts_at: string;
+  location_note?: string | null;
+  memo?: string | null;
+  capacity: number | null;
+  allow_waitlist?: boolean | null;
+  attendance_method: string;
+  attendance_closes_at: string | null;
+};
+
+function toFormDefaults(meeting: MeetingRecord) {
+  const startsAt = new Date(meeting.starts_at);
+  const closeAt = meeting.attendance_closes_at ? new Date(meeting.attendance_closes_at) : null;
+  const locationParts = (meeting.location_note ?? "").split(" · ");
+  const deadlineHours =
+    closeAt && !Number.isNaN(closeAt.getTime())
+      ? Math.max(1, Math.round((startsAt.getTime() - closeAt.getTime()) / (60 * 60 * 1000)))
+      : 6;
+
+  return {
+    startsOn: toKoreanDateValue(startsAt),
+    startsAt: toKoreanTimeValue(startsAt),
+    placeName: locationParts[0] ?? "",
+    placeAddress: locationParts.slice(1).join(" · "),
+    deadlineHours: String([6, 12, 24].includes(deadlineHours) ? deadlineHours : 6)
+  };
+}
+
+function toKoreanDateValue(date: Date) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(date);
+}
+
+function toKoreanTimeValue(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Seoul",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).formatToParts(date);
+
+  return `${parts.find((part) => part.type === "hour")?.value ?? "00"}:${parts.find((part) => part.type === "minute")?.value ?? "00"}`;
+}
+
+function SectionHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase text-strategy">{eyebrow}</p>
+      <h2 className="mt-1 text-lg font-bold leading-7">{title}</h2>
+    </div>
+  );
+}
+
+function FieldGroup({
+  children,
+  icon: Icon,
+  title
+}: {
+  children: React.ReactNode;
+  icon: typeof CalendarClock;
+  title: string;
+}) {
+  return (
+    <section className="rounded-2xl border border-line bg-surfaceAlt p-4">
+      <h2 className="flex items-center gap-2 text-base font-bold">
+        <Icon className="text-strategy" size={20} />
+        {title}
+      </h2>
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
