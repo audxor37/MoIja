@@ -45,8 +45,11 @@ create table matches (
   team_id uuid not null references teams(id) on delete cascade,
   venue_id uuid references venues(id),
   title text not null,
+  location_note text,
+  memo text,
   starts_at timestamptz not null,
   capacity integer,
+  allow_waitlist boolean not null default true,
   attendance_method attendance_method not null default 'manual',
   attendance_closes_at timestamptz,
   created_by uuid not null references profiles(id),
@@ -310,14 +313,24 @@ on matches for select
 to authenticated
 using (private.is_team_member(team_id));
 
-create policy "matches_manage_manager"
-on matches for all
+create policy "matches_insert_manager"
+on matches for insert
 to authenticated
-using (private.is_team_member(team_id, array['owner', 'manager']::team_role[]))
 with check (
-  created_by = auth.uid()
+  created_by = (select auth.uid())
   and private.is_team_member(team_id, array['owner', 'manager']::team_role[])
 );
+
+create policy "matches_update_manager"
+on matches for update
+to authenticated
+using (private.is_team_member(team_id, array['owner', 'manager']::team_role[]))
+with check (private.is_team_member(team_id, array['owner', 'manager']::team_role[]));
+
+create policy "matches_delete_manager"
+on matches for delete
+to authenticated
+using (private.is_team_member(team_id, array['owner', 'manager']::team_role[]));
 
 create policy "attendances_select_team"
 on match_attendances for select

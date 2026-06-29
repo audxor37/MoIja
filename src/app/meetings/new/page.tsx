@@ -11,26 +11,35 @@ import {
   Timer,
   Users
 } from "lucide-react";
+import { createMeeting } from "@/app/meetings/actions";
 
 const attendanceMethods = [
-  { label: "운영자 확인", description: "현장에서 관리자가 직접 출석을 확정합니다.", badge: "MVP 권장" },
-  { label: "QR 체크", description: "도착한 멤버가 QR로 빠르게 체크합니다.", badge: "빠른 체크" },
-  { label: "GPS + 승인", description: "위치 확인 후 운영자가 최종 승인합니다.", badge: "신뢰 강화" }
+  { value: "manual", label: "운영자 확인", description: "현장에서 운영자가 직접 출석을 확정합니다.", badge: "MVP 권장" },
+  { value: "qr", label: "QR 체크", description: "멤버가 QR로 빠르게 체크인합니다.", badge: "빠른 체크" },
+  { value: "gps_approval", label: "GPS + 승인", description: "위치 확인 후 운영자가 최종 승인합니다.", badge: "신뢰도 강화" }
 ];
 
 const reminderRules = [
   "마감 24시간 전 미응답 멤버 알림",
   "마감 3시간 전 참석자 리마인드",
-  "취소 발생 시 대기자 자동 안내"
+  "취소 발생 시 대기자 전환 안내"
 ];
 
-const setupMetrics = [
-  { label: "권장 마감", value: "6h", note: "경기 시작 전" },
-  { label: "예상 응답률", value: "82%", note: "리마인드 적용" },
-  { label: "출석 방식", value: "수동", note: "운영자 확정" }
-];
+const messageMap: Record<string, string> = {
+  auth_required: "로그인이 필요합니다. 다시 로그인해 주세요.",
+  permission_denied: "모임을 만들 수 있는 Owner 또는 Manager 권한이 필요합니다.",
+  create_failed: "모임 저장에 실패했습니다. 입력값과 Supabase 스키마를 확인해 주세요."
+};
 
-export default function NewMeetingPage() {
+export default async function NewMeetingPage({
+  searchParams
+}: {
+  searchParams?: Promise<{ meeting_error?: string; meeting_message?: string }>;
+}) {
+  const params = await searchParams;
+  const message =
+    params?.meeting_message || (params?.meeting_error ? messageMap[params.meeting_error] : null);
+
   return (
     <main className="min-h-screen bg-app text-ink">
       <div className="mx-auto flex w-full max-w-7xl flex-col px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
@@ -55,24 +64,32 @@ export default function NewMeetingPage() {
           <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-card lg:max-w-md">
             <ShieldCheck className="shrink-0 text-primary" size={22} />
             <p className="text-sm font-semibold leading-6 text-secondary">
-              저장 전에도 참석 마감, 알림, 출석 방식을 함께 설계해 노쇼 위험을 줄입니다.
+              저장할 때 신청 마감, 대기 허용, 출석 방식을 함께 남겨 노쇼 위험을 줄입니다.
             </p>
           </div>
         </header>
 
+        {message ? (
+          <div className="mt-5 rounded-2xl border border-[#FBD6A3] bg-[#FFF7E8] px-5 py-4 text-sm font-semibold text-[#8A5200]">
+            {message}
+          </div>
+        ) : null}
+
         <section className="grid gap-6 py-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:py-8">
-          <form className="grid gap-5 rounded-2xl bg-white p-5 shadow-card sm:p-6">
+          <form action={createMeeting} className="grid gap-5 rounded-2xl bg-white p-5 shadow-card sm:p-6">
             <section>
               <SectionHeader
                 eyebrow="기본 정보"
-                title="멤버가 바로 이해할 수 있는 경기 정보를 입력하세요"
+                title="멤버가 바로 이해할 수 있는 모임 정보를 입력하세요"
               />
               <div className="mt-5 grid gap-4">
                 <label className="grid gap-2">
                   <span className="text-sm font-semibold text-secondary">모임 이름</span>
                   <input
-                    className="h-[52px] rounded-[14px] border border-line bg-white px-4 text-sm font-semibold outline-none transition placeholder:text-disabled focus:border-strategy focus:ring-4 focus:ring-[#2563EB]/10"
+                    className="field-input"
+                    name="title"
                     placeholder="예: 목요일 풋살 정기전"
+                    required
                     type="text"
                   />
                 </label>
@@ -80,7 +97,8 @@ export default function NewMeetingPage() {
                   <span className="text-sm font-semibold text-secondary">운영 메모</span>
                   <textarea
                     className="min-h-32 resize-none rounded-[14px] border border-line bg-white px-4 py-3 text-sm font-semibold leading-6 outline-none transition placeholder:text-disabled focus:border-strategy focus:ring-4 focus:ring-[#2563EB]/10"
-                    placeholder="참석 기준, 준비물, 팀 배정 방식 등을 적어주세요."
+                    name="memo"
+                    placeholder="준비물, 팀 배정 방식, 우천 시 안내 등을 적어 주세요."
                   />
                 </label>
               </div>
@@ -89,33 +107,33 @@ export default function NewMeetingPage() {
             <section className="grid gap-4 md:grid-cols-2">
               <FieldGroup icon={CalendarClock} title="일정">
                 <div className="grid gap-3">
-                  <input className="field-input" type="date" />
-                  <input className="field-input" type="time" />
+                  <input className="field-input" name="startsOn" required type="date" />
+                  <input className="field-input" name="startsAt" required type="time" />
                 </div>
               </FieldGroup>
               <FieldGroup icon={MapPin} title="장소">
                 <div className="grid gap-3">
-                  <input className="field-input" placeholder="장소명" type="text" />
-                  <input className="field-input" placeholder="주소 또는 지도 링크" type="text" />
+                  <input className="field-input" name="placeName" placeholder="장소명" type="text" />
+                  <input className="field-input" name="placeAddress" placeholder="주소 또는 지도 링크" type="text" />
                 </div>
               </FieldGroup>
             </section>
 
             <section>
-              <SectionHeader eyebrow="운영 규칙" title="정원, 대기, 마감 시간을 함께 정합니다" />
+              <SectionHeader eyebrow="운영 규칙" title="정원, 대기, 신청 마감을 함께 정합니다" />
               <div className="mt-5 grid gap-4 md:grid-cols-3">
                 <label className="setup-field">
                   <span className="flex items-center gap-2 text-sm font-semibold text-secondary">
                     <Users size={17} />
                     정원
                   </span>
-                  <input className="field-input bg-white" min="1" placeholder="18" type="number" />
+                  <input className="field-input bg-white" min="1" name="capacity" placeholder="18" type="number" />
                 </label>
                 <label className="setup-field">
                   <span className="text-sm font-semibold text-secondary">대기 허용</span>
-                  <select className="field-input bg-white">
-                    <option>허용</option>
-                    <option>허용 안 함</option>
+                  <select className="field-input bg-white" name="allowWaitlist" defaultValue="on">
+                    <option value="on">허용</option>
+                    <option value="">허용 안 함</option>
                   </select>
                 </label>
                 <label className="setup-field">
@@ -123,10 +141,10 @@ export default function NewMeetingPage() {
                     <Timer size={17} />
                     신청 마감
                   </span>
-                  <select className="field-input bg-white">
-                    <option>시작 6시간 전</option>
-                    <option>시작 12시간 전</option>
-                    <option>시작 24시간 전</option>
+                  <select className="field-input bg-white" name="deadlineHours" defaultValue="6">
+                    <option value="6">시작 6시간 전</option>
+                    <option value="12">시작 12시간 전</option>
+                    <option value="24">시작 24시간 전</option>
                   </select>
                 </label>
               </div>
@@ -140,14 +158,15 @@ export default function NewMeetingPage() {
                     className={`grid cursor-pointer gap-3 rounded-2xl border p-4 transition hover:border-strategy ${
                       index === 0 ? "border-primary bg-[#F7FCF9]" : "border-line bg-white"
                     }`}
-                    key={method.label}
+                    key={method.value}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <input
                         className="h-4 w-4 accent-primary"
                         defaultChecked={index === 0}
-                        name="attendance"
+                        name="attendanceMethod"
                         type="radio"
+                        value={method.value}
                       />
                       <span className="rounded-full bg-[#E8F3FF] px-2.5 py-1 text-[11px] font-bold text-strategy">
                         {method.badge}
@@ -169,7 +188,7 @@ export default function NewMeetingPage() {
               </Link>
               <button
                 className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-base font-bold text-white shadow-card transition hover:bg-[#12843D]"
-                type="button"
+                type="submit"
               >
                 <Plus size={18} />
                 모임 만들기
@@ -196,26 +215,12 @@ export default function NewMeetingPage() {
             <section className="rounded-2xl bg-white p-5 shadow-card">
               <div className="flex items-center gap-3">
                 <Bell className="text-strategy" size={22} />
-                <h2 className="text-lg font-bold">노쇼 감소 힌트</h2>
+                <h2 className="text-lg font-bold">노쇼 감소 포인트</h2>
               </div>
               <p className="mt-4 text-sm font-semibold leading-7 text-secondary">
-                신청 마감과 대기자 알림을 함께 설정하면 취소 자리를 빠르게 채울 수 있습니다. 출석 확정 이후의 변경 기록은 신뢰도 계산에 사용할 수 있습니다.
+                신청 마감과 대기 허용을 함께 설정하면 취소 자리를 빠르게 채울 수 있습니다.
+                출석 확정 이후의 상태 변경 기록은 신뢰도 계산의 기반이 됩니다.
               </p>
-            </section>
-
-            <section className="rounded-2xl bg-navy p-5 text-white shadow-card">
-              <h2 className="text-lg font-bold">설정 미리보기</h2>
-              <div className="mt-5 grid gap-4">
-                {setupMetrics.map((metric) => (
-                  <div className="flex items-end justify-between border-b border-white/10 pb-3" key={metric.label}>
-                    <div>
-                      <p className="text-sm font-semibold text-white/60">{metric.label}</p>
-                      <p className="mt-1 text-xs text-white/45">{metric.note}</p>
-                    </div>
-                    <p className="text-2xl font-bold">{metric.value}</p>
-                  </div>
-                ))}
-              </div>
             </section>
           </aside>
         </section>
