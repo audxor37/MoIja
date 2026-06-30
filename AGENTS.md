@@ -30,6 +30,15 @@ MoIja는 축구/풋살 동호회 운영 SaaS다. 기능을 만들 때는 경기 
 - 코드 문맥만으로 해결할 수 있는 작업이라면, 굳이 미리 문서를 읽지 않는다.
 - 문서를 읽을 때도 전체 출력하지 말고, 필요한 섹션만 검색해서 읽는다.
 
+## Development Lens
+
+- Product: 운영자와 멤버의 반복 행동을 줄이는가?
+- Data: 나중에 신뢰도/랭킹/시즌 통계를 계산할 수 있는가?
+- Permission: Owner, Manager, Coach, Member, Guest 권한이 명확한가?
+- Privacy: Kakao ID, 닉네임, 프로필 이미지 외 민감정보를 저장하지 않는가?
+- UX: 모바일에서 핵심 행동이 1~2번 안에 가능한가?
+- Growth: 축구/풋살 이후 다른 정기 모임으로 확장 가능한가?
+
 ## Default Rules
 
 - 모바일 우선
@@ -38,6 +47,20 @@ MoIja는 축구/풋살 동호회 운영 SaaS다. 기능을 만들 때는 경기 
 - Owner, Manager, Coach, Member, Guest 권한 구분
 - 출석 신청과 운영자 확정은 분리
 - 변경 이력이 필요한 데이터는 이벤트로 남김
+
+## Supabase Schema Application
+
+- 기능 구현에 Supabase 스키마, RLS, 함수, 인덱스, 마이그레이션 변경이 포함되면 Codex가 직접 원격 Supabase 프로젝트에 적용한다.
+- 적용 대상은 `.env.local`의 `NEXT_PUBLIC_SUPABASE_URL` project ref와 일치하는 Supabase 프로젝트를 우선한다.
+- 원격 적용 전에는 현재 마이그레이션/정책 상태를 확인하고, 적용 후에는 SQL 조회나 마이그레이션 목록으로 실제 반영 여부를 검증한다.
+- 로컬에는 동일 내용을 `supabase/migrations`와 필요 시 `supabase/schema.sql`에 남겨 코드와 원격 DB 상태가 어긋나지 않게 한다.
+- RLS/권한 변경 시 Owner, Manager, Coach, Member, Guest 권한 분리를 유지하고, `TO authenticated`만으로 끝나는 정책을 만들지 않는다.
+
+## Git Commit Messages
+
+- 커밋 메시지는 한글로 작성한다.
+- 제목은 변경 내용을 한 줄로 요약하고, 필요한 경우 본문에 핵심 변경점과 검증 결과를 짧게 적는다.
+- 예: `출석 응답 화면과 이력 기록 추가`
 
 ## Token Usage
 
@@ -73,6 +96,7 @@ Before finishing implementation work:
 Get-CimInstance Win32_Process -Filter "name = 'node.exe'" |
   Where-Object { $_.CommandLine -like '*mo-ija*next*dev*' -or $_.CommandLine -like '*mo-ija*next*build*' } |
   Select-Object ProcessId,CommandLine
+```
 
 ```bash
 npm run typecheck

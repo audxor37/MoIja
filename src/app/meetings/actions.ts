@@ -1,12 +1,13 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
-  buildCreateMeetingRpcArgs,
-  MANAGER_TEAM_MEMBERSHIP_SELECT,
-  type ManagerTeamMembershipRow,
-  toManagerTeam
-} from "@/lib/meeting-actions";
+  canSubmitAttendanceResponse,
+  shouldWriteAttendanceEvent,
+  validateAttendanceResponseStatus,
+  type AttendanceStatus
+} from "@/lib/attendance";
 import { canManageMeeting, validateMeetingInput } from "@/lib/meetings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -19,6 +20,13 @@ const meetingErrorParams: Record<string, string> = {
   missing: "meeting_error=missing_meeting"
 };
 
+const attendanceErrorParams: Record<string, string> = {
+  auth: "attendance_error=auth_required",
+  invalid: "attendance_error=invalid_status",
+  missing: "attendance_error=missing_meeting",
+  save: "attendance_error=save_failed"
+};
+
 function formValue(formData: FormData, name: string) {
   return String(formData.get(name) ?? "");
 }
@@ -29,6 +37,14 @@ function redirectWithMeetingError(key: keyof typeof meetingErrorParams, path = "
 
 function redirectWithMeetingMessage(message: string, path = "/"): never {
   redirect(`${path}?meeting_message=${encodeURIComponent(message)}`);
+}
+
+function redirectWithAttendanceError(key: keyof typeof attendanceErrorParams, meetingId: string): never {
+  redirect(`/meetings/${meetingId}?${attendanceErrorParams[key]}`);
+}
+
+function redirectWithAttendanceMessage(message: string, meetingId: string): never {
+  redirect(`/meetings/${meetingId}?attendance_message=${encodeURIComponent(message)}`);
 }
 
 function readMeetingForm(formData: FormData) {
@@ -58,14 +74,6 @@ function isSchemaColumnError(error: { code?: string; message?: string } | null) 
   );
 }
 
-function isAuthRequiredError(error: { code?: string; message?: string } | null) {
-  return error?.code === "28000" || /auth|jwt|session/i.test(error?.message ?? "");
-}
-
-function isPermissionError(error: { code?: string; message?: string } | null) {
-  return error?.code === "42501" || /permission|privilege|manager|owner/i.test(error?.message ?? "");
-}
-
 async function getCurrentUserAndTeam() {
   const supabase = await createSupabaseServerClient();
   const {
@@ -78,19 +86,28 @@ async function getCurrentUserAndTeam() {
 
   const { data: membership } = await supabase
     .from("team_members")
-    .select(MANAGER_TEAM_MEMBERSHIP_SELECT)
+    .select("role, teams(id)")
     .eq("profile_id", user.id)
     .in("role", ["owner", "manager"])
     .order("joined_at", { ascending: true })
     .limit(1)
     .maybeSingle();
 
-  const team = toManagerTeam(membership as ManagerTeamMembershipRow | null);
+  type TeamRecord = { id: string };
+  const typedMembership = membership as
+    | {
+        role?: string;
+        teams?: TeamRecord | TeamRecord[] | null;
+      }
+    | null;
+  const joinedTeam = Array.isArray(typedMembership?.teams)
+    ? typedMembership?.teams[0]
+    : typedMembership?.teams;
 
   return {
     supabase,
     user,
-    team
+    team: joinedTeam ? { id: joinedTeam.id, role: typedMembership?.role ?? "member" } : null
   };
 }
 
@@ -138,15 +155,44 @@ export async function createMeeting(formData: FormData) {
     redirectWithMeetingMessage(input.message, "/meetings/new");
   }
 
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("create_match_for_current_manager", buildCreateMeetingRpcArgs(input));
+  const { supabase, user, team } = await getCurrentUserAndTeam();
 
-  if (isAuthRequiredError(error)) {
+  if (!user) {
     redirectWithMeetingError("auth", "/meetings/new");
   }
 
-  if (isPermissionError(error)) {
+  if (!team) {
     redirectWithMeetingError("permission", "/meetings/new");
+  }
+
+  const baseMeeting = {
+    team_id: team.id,
+    title: input.title,
+    starts_at: input.startsAt,
+    capacity: input.capacity,
+    attendance_method: input.attendanceMethod,
+    attendance_closes_at: input.attendanceClosesAt,
+    created_by: user.id
+  };
+
+  const { error } = await supabase.from("matches").insert({
+    ...baseMeeting,
+    location_note: input.locationNote,
+    memo: input.memo,
+    allow_waitlist: input.allowWaitlist
+  });
+
+  if (error && isSchemaColumnError(error)) {
+    console.warn("[meetings:create] Retrying with base matches schema.", error);
+    const { error: fallbackError } = await supabase.from("matches").insert(baseMeeting);
+
+    if (!fallbackError) {
+      revalidatePath("/");
+      redirectWithMeetingMessage("모임을 만들었습니다.");
+    }
+
+    console.error("[meetings:create] Base schema insert failed.", fallbackError);
+    redirectWithMeetingError("create", "/meetings/new");
   }
 
   if (error) {
@@ -154,6 +200,7 @@ export async function createMeeting(formData: FormData) {
     redirectWithMeetingError("create", "/meetings/new");
   }
 
+  revalidatePath("/");
   redirectWithMeetingMessage("모임을 만들었습니다.");
 }
 
@@ -214,6 +261,8 @@ export async function updateMeeting(formData: FormData) {
       .eq("team_id", meeting.team_id);
 
     if (!fallbackError) {
+      revalidatePath("/");
+      revalidatePath(`/meetings/${meetingId}/edit`);
       redirectWithMeetingMessage("모임 정보를 수정했습니다.");
     }
 
@@ -226,6 +275,8 @@ export async function updateMeeting(formData: FormData) {
     redirectWithMeetingError("update", `/meetings/${meetingId}/edit`);
   }
 
+  revalidatePath("/");
+  revalidatePath(`/meetings/${meetingId}/edit`);
   redirectWithMeetingMessage("모임 정보를 수정했습니다.");
 }
 
@@ -259,5 +310,86 @@ export async function deleteMeeting(formData: FormData) {
     redirectWithMeetingError("delete");
   }
 
+  revalidatePath("/");
   redirectWithMeetingMessage("모임을 삭제했습니다.");
+}
+
+export async function respondToMeetingAttendance(formData: FormData) {
+  const meetingId = formValue(formData, "meetingId");
+  const nextStatus = validateAttendanceResponseStatus(formValue(formData, "status"));
+
+  if (!meetingId) {
+    redirectWithMeetingError("missing");
+  }
+
+  if (!nextStatus) {
+    redirectWithAttendanceError("invalid", meetingId);
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirectWithAttendanceError("auth", meetingId);
+  }
+
+  const { data: meeting } = await supabase
+    .from("matches")
+    .select("id, allow_waitlist")
+    .eq("id", meetingId)
+    .maybeSingle();
+
+  if (!meeting) {
+    redirectWithAttendanceError("missing", meetingId);
+  }
+
+  const currentMeeting = meeting as { id: string; allow_waitlist: boolean | null };
+
+  if (!canSubmitAttendanceResponse(nextStatus, currentMeeting.allow_waitlist ?? true)) {
+    redirectWithAttendanceError("invalid", meetingId);
+  }
+
+  const { data: existing } = await supabase
+    .from("match_attendances")
+    .select("id, status")
+    .eq("match_id", meetingId)
+    .eq("profile_id", user.id)
+    .maybeSingle();
+  const previousStatus = (existing as { id: string; status: AttendanceStatus } | null)?.status ?? null;
+
+  const { data: attendance, error: attendanceError } = await supabase
+    .from("match_attendances")
+    .upsert(
+      {
+        match_id: meetingId,
+        profile_id: user.id,
+        status: nextStatus
+      },
+      { onConflict: "match_id,profile_id" }
+    )
+    .select("id")
+    .single();
+
+  if (attendanceError || !attendance) {
+    console.error("[attendance:respond] Upsert failed.", attendanceError);
+    redirectWithAttendanceError("save", meetingId);
+  }
+
+  if (shouldWriteAttendanceEvent(previousStatus, nextStatus)) {
+    const { error: eventError } = await supabase.from("attendance_events").insert({
+      attendance_id: attendance.id,
+      previous_status: previousStatus,
+      next_status: nextStatus,
+      changed_by: user.id
+    });
+
+    if (eventError) {
+      console.error("[attendance:respond] Event insert failed.", eventError);
+      redirectWithAttendanceError("save", meetingId);
+    }
+  }
+
+  redirectWithAttendanceMessage("참석 응답을 저장했습니다.", meetingId);
 }

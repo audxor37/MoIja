@@ -633,7 +633,9 @@ function MeetingCard({ meeting, selected }: { meeting: DashboardMeeting; selecte
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-bold">{meeting.title}</h3>
+            <Link className="text-lg font-bold transition hover:text-primary" href={`/meetings/${meeting.id}`}>
+              {meeting.title}
+            </Link>
             <span className="rounded-full bg-[#E8F7EE] px-3 py-1 text-xs font-bold text-primary">등록됨</span>
           </div>
           <p className="mt-2 text-sm text-secondary">
@@ -657,6 +659,12 @@ function MeetingCard({ meeting, selected }: { meeting: DashboardMeeting; selecte
           >
             <Pencil size={16} />
             수정
+          </Link>
+          <Link
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-white transition hover:bg-[#12843D]"
+            href={`/meetings/${meeting.id}`}
+          >
+            상세
           </Link>
           <form action={deleteMeeting}>
             <input name="meetingId" type="hidden" value={meeting.id} />
