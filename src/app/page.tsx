@@ -19,9 +19,16 @@ import {
   Users
 } from "lucide-react";
 import Link from "next/link";
+import { cache } from "react";
 import { createOrganizerTeam, joinTeamByInvite } from "@/app/onboarding/actions";
 import { deleteMeeting } from "@/app/meetings/actions";
 import { InviteCodeCopyButton } from "@/components/invite-code-copy-button";
+import {
+  DASHBOARD_MEETING_LIMIT,
+  type DashboardMeeting,
+  type DashboardMatchRow,
+  mapDashboardMeetings
+} from "@/lib/dashboard-session";
 import { formatMeetingDateTime } from "@/lib/meetings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -66,34 +73,12 @@ const bottomNav = [
   { label: "내 정보", icon: ShieldCheck }
 ];
 
-type DashboardMeeting = {
-  id: string;
-  title: string;
-  startsAt: string;
-  locationNote: string | null;
-  capacity: number | null;
-  allowWaitlist: boolean;
-  attendanceMethod: string;
-  attendanceClosesAt: string | null;
-};
-
 type TeamSession = {
   id: string;
   name: string;
   role: string;
   inviteCode: string | null;
   meetings: DashboardMeeting[];
-};
-
-type MatchRow = {
-  id: string;
-  title: string;
-  starts_at: string;
-  location_note?: string | null;
-  capacity: number | null;
-  allow_waitlist?: boolean | null;
-  attendance_method: string;
-  attendance_closes_at: string | null;
 };
 
 export default async function Home({
@@ -453,7 +438,7 @@ function OperatorDashboard({
   );
 }
 
-async function getCurrentSession() {
+const getCurrentSession = cache(async function getCurrentSession() {
   try {
     const supabase = await createSupabaseServerClient();
     const {
@@ -464,20 +449,21 @@ async function getCurrentSession() {
       return { nickname: null, team: null };
     }
 
-    const { data: profile } = await supabase.from("profiles").select("nickname").eq("id", user.id).maybeSingle();
-    const nickname =
-      profile?.nickname ||
-      (typeof user.user_metadata.nickname === "string" ? user.user_metadata.nickname : null) ||
-      (typeof user.user_metadata.name === "string" ? user.user_metadata.name : null) ||
-      "운영자";
-
-    const { data: membership } = await supabase
+    const profilePromise = supabase.from("profiles").select("nickname").eq("id", user.id).maybeSingle();
+    const membershipPromise = supabase
       .from("team_members")
       .select("role, teams(id, name, invite_code)")
       .eq("profile_id", user.id)
       .order("joined_at", { ascending: true })
       .limit(1)
       .maybeSingle();
+
+    const [{ data: profile }, { data: membership }] = await Promise.all([profilePromise, membershipPromise]);
+    const nickname =
+      profile?.nickname ||
+      (typeof user.user_metadata.nickname === "string" ? user.user_metadata.nickname : null) ||
+      (typeof user.user_metadata.name === "string" ? user.user_metadata.name : null) ||
+      "운영자";
 
     type TeamRecord = { id: string; name: string; invite_code: string | null };
     const typedMembership = membership as
@@ -498,7 +484,8 @@ async function getCurrentSession() {
       .from("matches")
       .select("id, title, starts_at, location_note, capacity, allow_waitlist, attendance_method, attendance_closes_at")
       .eq("team_id", joinedTeam.id)
-      .order("starts_at", { ascending: true });
+      .order("starts_at", { ascending: true })
+      .limit(DASHBOARD_MEETING_LIMIT);
 
     const { data: fallbackMatches } = matchesError
       ? await supabase
@@ -506,19 +493,11 @@ async function getCurrentSession() {
           .select("id, title, starts_at, capacity, attendance_method, attendance_closes_at")
           .eq("team_id", joinedTeam.id)
           .order("starts_at", { ascending: true })
+          .limit(DASHBOARD_MEETING_LIMIT)
       : { data: null };
 
-    const matchRows = ((matches ?? fallbackMatches ?? []) as MatchRow[]);
-    const meetings = matchRows.map((match) => ({
-      id: match.id,
-      title: match.title,
-      startsAt: match.starts_at,
-      locationNote: "location_note" in match ? match.location_note ?? null : null,
-      capacity: match.capacity,
-      allowWaitlist: "allow_waitlist" in match ? match.allow_waitlist ?? true : true,
-      attendanceMethod: match.attendance_method,
-      attendanceClosesAt: match.attendance_closes_at
-    }));
+    const matchRows = (matches ?? fallbackMatches ?? []) as DashboardMatchRow[];
+    const meetings = mapDashboardMeetings(matchRows);
 
     return {
       nickname,
@@ -533,7 +512,7 @@ async function getCurrentSession() {
   } catch {
     return { nickname: null, team: null };
   }
-}
+});
 
 function Brand() {
   return (

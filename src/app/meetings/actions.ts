@@ -1,7 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import {
+  buildCreateMeetingRpcArgs,
+  MANAGER_TEAM_MEMBERSHIP_SELECT,
+  type ManagerTeamMembershipRow,
+  toManagerTeam
+} from "@/lib/meeting-actions";
 import { validateMeetingInput } from "@/lib/meetings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -53,6 +58,14 @@ function isSchemaColumnError(error: { code?: string; message?: string } | null) 
   );
 }
 
+function isAuthRequiredError(error: { code?: string; message?: string } | null) {
+  return error?.code === "28000" || /auth|jwt|session/i.test(error?.message ?? "");
+}
+
+function isPermissionError(error: { code?: string; message?: string } | null) {
+  return error?.code === "42501" || /permission|privilege|manager|owner/i.test(error?.message ?? "");
+}
+
 async function getCurrentUserAndTeam() {
   const supabase = await createSupabaseServerClient();
   const {
@@ -65,28 +78,19 @@ async function getCurrentUserAndTeam() {
 
   const { data: membership } = await supabase
     .from("team_members")
-    .select("role, teams(id)")
+    .select(MANAGER_TEAM_MEMBERSHIP_SELECT)
     .eq("profile_id", user.id)
     .in("role", ["owner", "manager"])
     .order("joined_at", { ascending: true })
     .limit(1)
     .maybeSingle();
 
-  type TeamRecord = { id: string };
-  const typedMembership = membership as
-    | {
-        role?: string;
-        teams?: TeamRecord | TeamRecord[] | null;
-      }
-    | null;
-  const joinedTeam = Array.isArray(typedMembership?.teams)
-    ? typedMembership?.teams[0]
-    : typedMembership?.teams;
+  const team = toManagerTeam(membership as ManagerTeamMembershipRow | null);
 
   return {
     supabase,
     user,
-    team: joinedTeam ? { id: joinedTeam.id, role: typedMembership?.role ?? "member" } : null
+    team
   };
 }
 
@@ -97,44 +101,15 @@ export async function createMeeting(formData: FormData) {
     redirectWithMeetingMessage(input.message, "/meetings/new");
   }
 
-  const { supabase, user, team } = await getCurrentUserAndTeam();
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("create_match_for_current_manager", buildCreateMeetingRpcArgs(input));
 
-  if (!user) {
+  if (isAuthRequiredError(error)) {
     redirectWithMeetingError("auth", "/meetings/new");
   }
 
-  if (!team) {
+  if (isPermissionError(error)) {
     redirectWithMeetingError("permission", "/meetings/new");
-  }
-
-  const baseMeeting = {
-    team_id: team.id,
-    title: input.title,
-    starts_at: input.startsAt,
-    capacity: input.capacity,
-    attendance_method: input.attendanceMethod,
-    attendance_closes_at: input.attendanceClosesAt,
-    created_by: user.id
-  };
-
-  const { error } = await supabase.from("matches").insert({
-    ...baseMeeting,
-    location_note: input.locationNote,
-    memo: input.memo,
-    allow_waitlist: input.allowWaitlist
-  });
-
-  if (error && isSchemaColumnError(error)) {
-    console.warn("[meetings:create] Retrying with base matches schema.", error);
-    const { error: fallbackError } = await supabase.from("matches").insert(baseMeeting);
-
-    if (!fallbackError) {
-      revalidatePath("/");
-      redirectWithMeetingMessage("모임을 만들었습니다.");
-    }
-
-    console.error("[meetings:create] Base schema insert failed.", fallbackError);
-    redirectWithMeetingError("create", "/meetings/new");
   }
 
   if (error) {
@@ -142,7 +117,6 @@ export async function createMeeting(formData: FormData) {
     redirectWithMeetingError("create", "/meetings/new");
   }
 
-  revalidatePath("/");
   redirectWithMeetingMessage("모임을 만들었습니다.");
 }
 
@@ -197,8 +171,6 @@ export async function updateMeeting(formData: FormData) {
       .eq("team_id", team.id);
 
     if (!fallbackError) {
-      revalidatePath("/");
-      revalidatePath(`/meetings/${meetingId}/edit`);
       redirectWithMeetingMessage("모임 정보를 수정했습니다.");
     }
 
@@ -211,8 +183,6 @@ export async function updateMeeting(formData: FormData) {
     redirectWithMeetingError("update", `/meetings/${meetingId}/edit`);
   }
 
-  revalidatePath("/");
-  revalidatePath(`/meetings/${meetingId}/edit`);
   redirectWithMeetingMessage("모임 정보를 수정했습니다.");
 }
 
@@ -240,6 +210,5 @@ export async function deleteMeeting(formData: FormData) {
     redirectWithMeetingError("delete");
   }
 
-  revalidatePath("/");
   redirectWithMeetingMessage("모임을 삭제했습니다.");
 }
