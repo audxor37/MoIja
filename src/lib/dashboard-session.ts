@@ -13,6 +13,7 @@ export type DashboardMeeting = {
   attendanceMethod: string;
   attendanceClosesAt: string | null;
   canManage: boolean;
+  myAttendanceStatus: AttendanceStatus | null;
   attendanceSummary: {
     responseRate: number;
     unansweredCount: number;
@@ -36,7 +37,8 @@ export type DashboardMatchRow = {
 export function mapDashboardMeetings(
   matchRows: DashboardMatchRow[],
   permission: { currentUserId: string; role: string | null | undefined },
-  attendanceSummaryByMatchId: Map<string, DashboardMeeting["attendanceSummary"]> = new Map()
+  attendanceSummaryByMatchId: Map<string, DashboardMeeting["attendanceSummary"]> = new Map(),
+  myAttendanceStatusByMatchId: Map<string, AttendanceStatus | null> = new Map()
 ) {
   return matchRows.slice(0, DASHBOARD_MEETING_LIMIT).map((match) => ({
     id: match.id,
@@ -52,6 +54,7 @@ export function mapDashboardMeetings(
       createdBy: match.created_by,
       role: permission.role
     }),
+    myAttendanceStatus: myAttendanceStatusByMatchId.get(match.id) ?? null,
     attendanceSummary: attendanceSummaryByMatchId.get(match.id) ?? {
       responseRate: 0,
       unansweredCount: 0,

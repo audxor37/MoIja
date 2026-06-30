@@ -1,7 +1,6 @@
 import {
   Activity,
   BarChart3,
-  Bell,
   CalendarPlus,
   ClipboardCheck,
   Grid2X2,
@@ -12,6 +11,7 @@ import {
   Pencil,
   Plus,
   ShieldCheck,
+  UserCheck,
   Timer,
   Trash2,
   Trophy,
@@ -24,6 +24,7 @@ import { createOrganizerTeam, joinTeamByInvite } from "@/app/onboarding/actions"
 import { deleteMeeting } from "@/app/meetings/actions";
 import { InviteCodeCopyButton } from "@/components/invite-code-copy-button";
 import { buildAttendanceSummary } from "@/lib/attendance";
+import { attendanceStatusLabel } from "@/lib/attendance";
 import {
   DASHBOARD_MEETING_LIMIT,
   type DashboardAttendanceRow,
@@ -33,12 +34,13 @@ import {
 } from "@/lib/dashboard-session";
 import { formatMeetingDateTime } from "@/lib/meetings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { canManageTeamRole, teamRoleLabel } from "@/lib/team-management";
 
 const navItems = [
   { label: "대시보드", icon: Grid2X2, href: "/", active: true },
   { label: "모임 생성", icon: CalendarPlus, href: "/meetings/new" },
   { label: "출석 체크", icon: ClipboardCheck, href: "/" },
-  { label: "공지/리마인드", icon: Bell, href: "/" }
+  { label: "팀 관리", icon: Users, href: "/team" }
 ];
 
 const authMessages: Record<string, string> = {
@@ -115,12 +117,12 @@ export default async function Home({
     );
   }
 
-  return (
-    <OperatorDashboard
-      message={authMessage || meetingError || meetingMessage}
-      nickname={session.nickname}
-      team={session.team}
-    />
+  const message = authMessage || meetingError || meetingMessage;
+
+  return canManageTeamRole(session.team.role) ? (
+    <OperatorDashboard message={message} nickname={session.nickname} team={session.team} />
+  ) : (
+    <MemberDashboard message={message} nickname={session.nickname} team={session.team} />
   );
 }
 
@@ -445,6 +447,94 @@ function OperatorDashboard({
   );
 }
 
+function MemberDashboard({
+  message,
+  nickname,
+  team
+}: {
+  message: string | null;
+  nickname: string;
+  team: TeamSession;
+}) {
+  const nextMeeting = team.meetings[0] ?? null;
+
+  return (
+    <main className="min-h-screen bg-app pb-24 text-ink lg:pb-0">
+      <header className="border-b border-line bg-white/95 px-4 py-4 backdrop-blur sm:px-6">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+          <Brand />
+          <AuthActions nickname={nickname} />
+        </div>
+      </header>
+
+      <section className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:py-8">
+        <section className="rounded-2xl bg-white p-5 shadow-card sm:p-6">
+          <span className="inline-flex h-7 items-center rounded-full bg-[#E8F3FF] px-3 text-xs font-bold text-strategy">
+            {teamRoleLabel(team.role)} 홈
+          </span>
+          <h1 className="mt-3 text-[30px] font-bold leading-10">{team.name}의 내 다음 경기</h1>
+          <p className="mt-3 text-sm font-semibold leading-6 text-secondary">
+            참석 신청과 현재 상태를 먼저 확인합니다. 운영 확정과 노쇼 처리는 운영자가 관리합니다.
+          </p>
+
+          {message ? (
+            <Notice tone="warning" className="mt-5">
+              {message}
+            </Notice>
+          ) : null}
+
+          {nextMeeting ? (
+            <article className="mt-6 rounded-2xl border border-primary bg-[#F8FEFA] p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-sm font-bold text-primary">다음 경기</p>
+                  <Link className="mt-1 block text-2xl font-bold hover:text-primary" href={`/meetings/${nextMeeting.id}`}>
+                    {nextMeeting.title}
+                  </Link>
+                  <p className="mt-3 text-sm font-semibold text-secondary">
+                    {formatMeetingDateTime(nextMeeting.startsAt)} · {nextMeeting.locationNote ?? "장소 미정"}
+                  </p>
+                </div>
+                <span className="inline-flex w-fit items-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-bold text-secondary">
+                  <UserCheck size={16} />
+                  {attendanceStatusLabel(nextMeeting.myAttendanceStatus)}
+                </span>
+              </div>
+              <Link
+                className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-white sm:w-auto"
+                href={`/meetings/${nextMeeting.id}`}
+              >
+                <ClipboardCheck size={17} />
+                참석 상태 변경
+              </Link>
+            </article>
+          ) : (
+            <EmptyMemberMeetings />
+          )}
+        </section>
+
+        <aside className="grid gap-5">
+          <section className="rounded-2xl bg-white p-5 shadow-card">
+            <h2 className="text-lg font-bold">내 상태</h2>
+            <div className="mt-4 grid gap-3">
+              <StatusPill label="역할" value={teamRoleLabel(team.role)} />
+              <StatusPill label="다음 응답" value={nextMeeting ? attendanceStatusLabel(nextMeeting.myAttendanceStatus) : "대기 중"} />
+              <StatusPill label="예정 경기" value={`${team.meetings.length}개`} />
+            </div>
+          </section>
+          <section className="rounded-2xl bg-navy p-5 text-white shadow-card">
+            <h2 className="text-lg font-bold">참석 신뢰도</h2>
+            <p className="mt-3 text-sm leading-6 text-white/70">
+              참석, 불참, 대기 응답을 경기 전에 남기면 운영자가 정원과 대기 전환을 더 정확히 관리할 수 있습니다.
+            </p>
+          </section>
+        </aside>
+      </section>
+      <MobileBottomNav />
+    </main>
+  );
+}
+
 const getCurrentSession = cache(async function getCurrentSession() {
   try {
     const supabase = await createSupabaseServerClient();
@@ -509,13 +599,21 @@ const getCurrentSession = cache(async function getCurrentSession() {
 
     const matchRows = (matches ?? fallbackMatches ?? []) as DashboardMatchRow[];
     const matchIds = matchRows.map((match) => match.id);
-    const [{ count: teamMemberCount }, { data: attendanceRows }] = await Promise.all([
+    const [{ count: teamMemberCount }, { data: attendanceRows }, { data: myAttendanceRows }] = await Promise.all([
       memberCountPromise,
       matchIds.length > 0
         ? supabase.from("match_attendances").select("match_id, status").in("match_id", matchIds)
+        : Promise.resolve({ data: [] }),
+      matchIds.length > 0
+        ? supabase.from("match_attendances").select("match_id, status").eq("profile_id", user.id).in("match_id", matchIds)
         : Promise.resolve({ data: [] })
     ]);
     const attendanceSummaryByMatchId = new Map<string, DashboardMeeting["attendanceSummary"]>();
+    const myAttendanceStatusByMatchId = new Map<string, DashboardMeeting["myAttendanceStatus"]>();
+
+    for (const row of (myAttendanceRows ?? []) as DashboardAttendanceRow[]) {
+      myAttendanceStatusByMatchId.set(row.match_id, row.status);
+    }
 
     for (const match of matchRows) {
       const rowsForMatch = ((attendanceRows ?? []) as DashboardAttendanceRow[]).filter(
@@ -530,10 +628,15 @@ const getCurrentSession = cache(async function getCurrentSession() {
       );
     }
 
-    const meetings = mapDashboardMeetings(matchRows, {
-      currentUserId: user.id,
-      role: typedMembership.role
-    }, attendanceSummaryByMatchId);
+    const meetings = mapDashboardMeetings(
+      matchRows,
+      {
+        currentUserId: user.id,
+        role: typedMembership.role
+      },
+      attendanceSummaryByMatchId,
+      myAttendanceStatusByMatchId
+    );
 
     return {
       nickname,
@@ -746,6 +849,17 @@ function EmptyMeetings() {
   );
 }
 
+function EmptyMemberMeetings() {
+  return (
+    <div className="mt-6 rounded-2xl border border-dashed border-lineStrong bg-surfaceAlt p-6 text-center">
+      <p className="text-lg font-bold">예정된 경기가 없습니다</p>
+      <p className="mt-2 text-sm font-semibold leading-6 text-secondary">
+        운영자가 경기를 만들면 여기서 참석 상태를 바로 남길 수 있습니다.
+      </p>
+    </div>
+  );
+}
+
 function InfoRow({
   icon: Icon,
   label,
@@ -771,16 +885,16 @@ function MobileBottomNav() {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-line bg-white px-2 py-2 shadow-raised lg:hidden">
       {bottomNav.map(({ label, icon: Icon, active }) => (
-        <button
+        <Link
           className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-semibold ${
             active ? "text-primary" : "text-muted"
           }`}
+          href={label === "팀" ? "/team" : "/"}
           key={label}
-          type="button"
         >
           <Icon size={19} />
           {label}
-        </button>
+        </Link>
       ))}
     </nav>
   );
