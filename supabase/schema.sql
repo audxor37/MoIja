@@ -324,13 +324,22 @@ with check (
 create policy "matches_update_manager"
 on matches for update
 to authenticated
-using (private.is_team_member(team_id, array['owner', 'manager']::team_role[]))
-with check (private.is_team_member(team_id, array['owner', 'manager']::team_role[]));
+using (
+  created_by = (select auth.uid())
+  or private.is_team_member(team_id, array['owner', 'manager']::team_role[])
+)
+with check (
+  created_by = (select auth.uid())
+  or private.is_team_member(team_id, array['owner', 'manager']::team_role[])
+);
 
 create policy "matches_delete_manager"
 on matches for delete
 to authenticated
-using (private.is_team_member(team_id, array['owner', 'manager']::team_role[]));
+using (
+  created_by = (select auth.uid())
+  or private.is_team_member(team_id, array['owner', 'manager']::team_role[])
+);
 
 create policy "attendances_select_team"
 on match_attendances for select

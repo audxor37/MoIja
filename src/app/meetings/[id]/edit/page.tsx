@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, CalendarClock, MapPin, Save, Timer, Users } from "lucide-react";
 import { updateMeeting } from "@/app/meetings/actions";
+import { canManageMeeting } from "@/lib/meetings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const messageMap: Record<string, string> = {
@@ -31,14 +32,14 @@ export default async function EditMeetingPage({
 
   const { data: meeting, error: meetingError } = await supabase
     .from("matches")
-    .select("id, title, starts_at, location_note, memo, capacity, allow_waitlist, attendance_method, attendance_closes_at")
+    .select("id, team_id, created_by, title, starts_at, location_note, memo, capacity, allow_waitlist, attendance_method, attendance_closes_at")
     .eq("id", id)
     .maybeSingle();
 
   const { data: fallbackMeeting } = meetingError
     ? await supabase
         .from("matches")
-        .select("id, title, starts_at, capacity, attendance_method, attendance_closes_at")
+        .select("id, team_id, created_by, title, starts_at, capacity, attendance_method, attendance_closes_at")
         .eq("id", id)
         .maybeSingle()
     : { data: null };
@@ -47,6 +48,18 @@ export default async function EditMeetingPage({
 
   if (!currentMeeting) {
     notFound();
+  }
+
+  const { data: membership } = await supabase
+    .from("team_members")
+    .select("role")
+    .eq("team_id", currentMeeting.team_id)
+    .eq("profile_id", user.id)
+    .maybeSingle();
+  const role = (membership as { role?: string } | null)?.role ?? null;
+
+  if (!canManageMeeting({ currentUserId: user.id, createdBy: currentMeeting.created_by, role })) {
+    redirect("/?meeting_error=permission_denied");
   }
 
   const defaults = toFormDefaults(currentMeeting as MeetingRecord);
@@ -190,6 +203,8 @@ export default async function EditMeetingPage({
 
 type MeetingRecord = {
   id: string;
+  team_id: string;
+  created_by: string | null;
   title: string;
   starts_at: string;
   location_note?: string | null;

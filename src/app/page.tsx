@@ -482,7 +482,7 @@ const getCurrentSession = cache(async function getCurrentSession() {
 
     const { data: matches, error: matchesError } = await supabase
       .from("matches")
-      .select("id, title, starts_at, location_note, capacity, allow_waitlist, attendance_method, attendance_closes_at")
+      .select("id, title, starts_at, created_by, location_note, capacity, allow_waitlist, attendance_method, attendance_closes_at")
       .eq("team_id", joinedTeam.id)
       .order("starts_at", { ascending: true })
       .limit(DASHBOARD_MEETING_LIMIT);
@@ -490,14 +490,17 @@ const getCurrentSession = cache(async function getCurrentSession() {
     const { data: fallbackMatches } = matchesError
       ? await supabase
           .from("matches")
-          .select("id, title, starts_at, capacity, attendance_method, attendance_closes_at")
+          .select("id, title, starts_at, created_by, capacity, attendance_method, attendance_closes_at")
           .eq("team_id", joinedTeam.id)
           .order("starts_at", { ascending: true })
           .limit(DASHBOARD_MEETING_LIMIT)
       : { data: null };
 
     const matchRows = (matches ?? fallbackMatches ?? []) as DashboardMatchRow[];
-    const meetings = mapDashboardMeetings(matchRows);
+    const meetings = mapDashboardMeetings(matchRows, {
+      currentUserId: user.id,
+      role: typedMembership.role
+    });
 
     return {
       nickname,
@@ -646,25 +649,31 @@ function MeetingCard({ meeting, selected }: { meeting: DashboardMeeting; selecte
         <StatusPill label="대기" value={meeting.allowWaitlist ? "허용" : "없음"} />
         <StatusPill label="출석" value={attendanceMethodLabel(meeting.attendanceMethod)} />
       </div>
-      <div className="mt-4 flex flex-col gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
-        <Link
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-surfaceAlt px-4 text-sm font-bold text-secondary transition hover:bg-line"
-          href={`/meetings/${meeting.id}/edit`}
-        >
-          <Pencil size={16} />
-          수정
-        </Link>
-        <form action={deleteMeeting}>
-          <input name="meetingId" type="hidden" value={meeting.id} />
-          <button
-            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#FFD7D7] bg-white px-4 text-sm font-bold text-danger transition hover:bg-[#FFF1F1] sm:w-auto"
-            type="submit"
+      {meeting.canManage ? (
+        <div className="mt-4 flex flex-col gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
+          <Link
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-surfaceAlt px-4 text-sm font-bold text-secondary transition hover:bg-line"
+            href={`/meetings/${meeting.id}/edit`}
           >
-            <Trash2 size={16} />
-            삭제
-          </button>
-        </form>
-      </div>
+            <Pencil size={16} />
+            수정
+          </Link>
+          <form action={deleteMeeting}>
+            <input name="meetingId" type="hidden" value={meeting.id} />
+            <button
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#FFD7D7] bg-white px-4 text-sm font-bold text-danger transition hover:bg-[#FFF1F1] sm:w-auto"
+              type="submit"
+            >
+              <Trash2 size={16} />
+              삭제
+            </button>
+          </form>
+        </div>
+      ) : (
+        <div className="mt-4 border-t border-line pt-4">
+          <p className="text-sm font-semibold text-muted">생성자 또는 운영 권한이 있는 멤버만 수정/삭제할 수 있습니다.</p>
+        </div>
+      )}
     </article>
   );
 }

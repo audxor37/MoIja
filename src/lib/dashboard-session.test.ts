@@ -7,6 +7,7 @@ test("maps only the dashboard meeting limit", () => {
     id: `match-${index}`,
     title: `Match ${index}`,
     starts_at: `2026-07-${String(index + 1).padStart(2, "0")}T20:00:00+09:00`,
+    created_by: index === 0 ? "user-1" : "other-user",
     location_note: index % 2 === 0 ? "A pitch" : null,
     capacity: 18,
     allow_waitlist: index % 2 === 0,
@@ -14,9 +15,11 @@ test("maps only the dashboard meeting limit", () => {
     attendance_closes_at: null
   }));
 
-  const meetings = mapDashboardMeetings(rows);
+  const meetings = mapDashboardMeetings(rows, { currentUserId: "user-1", role: "member" });
 
   assert.equal(meetings.length, DASHBOARD_MEETING_LIMIT);
   assert.equal(meetings[0]?.id, "match-0");
+  assert.equal(meetings[0]?.canManage, true);
+  assert.equal(meetings[1]?.canManage, false);
   assert.equal(meetings.at(-1)?.id, `match-${DASHBOARD_MEETING_LIMIT - 1}`);
 });
