@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  canManageMeeting,
   formatMeetingDateTime,
   validateMeetingInput
 } from "./meetings";
@@ -30,6 +31,18 @@ test("validates required meeting fields and computes the attendance deadline", (
     attendanceMethod: "manual",
     attendanceClosesAt: "2026-07-02T14:00:00+09:00"
   });
+});
+
+test("allows meeting creators and operators to manage a meeting", () => {
+  assert.equal(canManageMeeting({ currentUserId: "user-1", createdBy: "user-1", role: "member" }), true);
+  assert.equal(canManageMeeting({ currentUserId: "user-2", createdBy: "user-1", role: "owner" }), true);
+  assert.equal(canManageMeeting({ currentUserId: "user-2", createdBy: "user-1", role: "manager" }), true);
+});
+
+test("blocks members who did not create the meeting from managing it", () => {
+  assert.equal(canManageMeeting({ currentUserId: "user-2", createdBy: "user-1", role: "member" }), false);
+  assert.equal(canManageMeeting({ currentUserId: "user-2", createdBy: null, role: "coach" }), false);
+  assert.equal(canManageMeeting({ currentUserId: null, createdBy: "user-1", role: "owner" }), false);
 });
 
 test("rejects meetings without a title", () => {

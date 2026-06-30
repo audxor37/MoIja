@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { validateMeetingInput } from "@/lib/meetings";
+import { canManageMeeting, validateMeetingInput } from "@/lib/meetings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const meetingErrorParams: Record<string, string> = {
@@ -90,6 +90,43 @@ async function getCurrentUserAndTeam() {
   };
 }
 
+async function getMeetingManagementContext(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userId: string,
+  meetingId: string
+) {
+  const { data: meeting } = await supabase
+    .from("matches")
+    .select("id, team_id, created_by")
+    .eq("id", meetingId)
+    .maybeSingle();
+
+  const currentMeeting = meeting as { id: string; team_id: string; created_by: string | null } | null;
+
+  if (!currentMeeting) {
+    return { meeting: null, role: null, canManage: false };
+  }
+
+  const { data: membership } = await supabase
+    .from("team_members")
+    .select("role")
+    .eq("team_id", currentMeeting.team_id)
+    .eq("profile_id", userId)
+    .maybeSingle();
+
+  const role = (membership as { role?: string } | null)?.role ?? null;
+
+  return {
+    meeting: currentMeeting,
+    role,
+    canManage: canManageMeeting({
+      currentUserId: userId,
+      createdBy: currentMeeting.created_by,
+      role
+    })
+  };
+}
+
 export async function createMeeting(formData: FormData) {
   const input = readMeetingForm(formData);
 
@@ -159,13 +196,19 @@ export async function updateMeeting(formData: FormData) {
     redirectWithMeetingMessage(input.message, `/meetings/${meetingId}/edit`);
   }
 
-  const { supabase, user, team } = await getCurrentUserAndTeam();
+  const { supabase, user } = await getCurrentUserAndTeam();
 
   if (!user) {
     redirectWithMeetingError("auth", `/meetings/${meetingId}/edit`);
   }
 
-  if (!team) {
+  const { meeting, canManage } = await getMeetingManagementContext(supabase, user.id, meetingId);
+
+  if (!meeting) {
+    redirectWithMeetingError("missing");
+  }
+
+  if (!canManage) {
     redirectWithMeetingError("permission", `/meetings/${meetingId}/edit`);
   }
 
@@ -186,7 +229,7 @@ export async function updateMeeting(formData: FormData) {
       allow_waitlist: input.allowWaitlist
     })
     .eq("id", meetingId)
-    .eq("team_id", team.id);
+    .eq("team_id", meeting.team_id);
 
   if (error && isSchemaColumnError(error)) {
     console.warn("[meetings:update] Retrying with base matches schema.", error);
@@ -194,7 +237,7 @@ export async function updateMeeting(formData: FormData) {
       .from("matches")
       .update(baseMeeting)
       .eq("id", meetingId)
-      .eq("team_id", team.id);
+      .eq("team_id", meeting.team_id);
 
     if (!fallbackError) {
       revalidatePath("/");
@@ -223,17 +266,23 @@ export async function deleteMeeting(formData: FormData) {
     redirectWithMeetingError("missing");
   }
 
-  const { supabase, user, team } = await getCurrentUserAndTeam();
+  const { supabase, user } = await getCurrentUserAndTeam();
 
   if (!user) {
     redirectWithMeetingError("auth");
   }
 
-  if (!team) {
+  const { meeting, canManage } = await getMeetingManagementContext(supabase, user.id, meetingId);
+
+  if (!meeting) {
+    redirectWithMeetingError("missing");
+  }
+
+  if (!canManage) {
     redirectWithMeetingError("permission");
   }
 
-  const { error } = await supabase.from("matches").delete().eq("id", meetingId).eq("team_id", team.id);
+  const { error } = await supabase.from("matches").delete().eq("id", meetingId).eq("team_id", meeting.team_id);
 
   if (error) {
     console.error("[meetings:delete] Delete failed.", error);

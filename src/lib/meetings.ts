@@ -3,6 +3,12 @@ const VALID_ATTENDANCE_METHODS = ["manual", "qr", "gps", "gps_approval"] as cons
 
 export type AttendanceMethod = (typeof VALID_ATTENDANCE_METHODS)[number];
 
+type MeetingPermissionInput = {
+  currentUserId: string | null;
+  createdBy: string | null;
+  role: string | null | undefined;
+};
+
 type MeetingInput = {
   title: string;
   memo: string;
@@ -35,6 +41,14 @@ export type MeetingInputResult =
 
 function isAttendanceMethod(value: string): value is AttendanceMethod {
   return VALID_ATTENDANCE_METHODS.includes(value as AttendanceMethod);
+}
+
+export function canManageMeeting({ currentUserId, createdBy, role }: MeetingPermissionInput) {
+  if (!currentUserId) {
+    return false;
+  }
+
+  return createdBy === currentUserId || role === "owner" || role === "manager";
 }
 
 function parsePositiveInteger(value: string) {
