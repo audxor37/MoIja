@@ -23,8 +23,10 @@ import { cache } from "react";
 import { createOrganizerTeam, joinTeamByInvite } from "@/app/onboarding/actions";
 import { deleteMeeting } from "@/app/meetings/actions";
 import { InviteCodeCopyButton } from "@/components/invite-code-copy-button";
+import { buildAttendanceSummary } from "@/lib/attendance";
 import {
   DASHBOARD_MEETING_LIMIT,
+  type DashboardAttendanceRow,
   type DashboardMeeting,
   type DashboardMatchRow,
   mapDashboardMeetings
@@ -294,7 +296,12 @@ function OperatorDashboard({
   team: TeamSession;
 }) {
   const nextMeeting = team.meetings[0] ?? null;
-  const totalCapacity = team.meetings.reduce((sum, meeting) => sum + (meeting.capacity ?? 0), 0);
+  const nextSummary = nextMeeting?.attendanceSummary ?? {
+    responseRate: 0,
+    unansweredCount: 0,
+    waitlistedCount: 0,
+    confirmationNeededCount: 0
+  };
 
   return (
     <main className="min-h-screen bg-app pb-24 text-ink lg:pb-0">
@@ -363,10 +370,10 @@ function OperatorDashboard({
             </section>
 
             <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <SummaryCard label="등록된 모임" value={String(team.meetings.length)} unit="개" tone="success" note="운영 중" />
-              <SummaryCard label="예상 정원" value={String(totalCapacity)} unit="명" tone="info" note="합산 기준" />
-              <SummaryCard label="다음 모임" value={nextMeeting ? "1" : "0"} unit="개" tone="warning" note="가장 가까운 일정" />
-              <SummaryCard label="출석 방식" value={nextMeeting ? attendanceMethodLabel(nextMeeting.attendanceMethod) : "-"} unit="" tone="neutral" note="다음 모임 기준" />
+              <SummaryCard label="응답률" value={String(nextSummary.responseRate)} unit="%" tone="success" note="다음 모임 기준" />
+              <SummaryCard label="미응답" value={String(nextSummary.unansweredCount)} unit="명" tone="warning" note="리마인드 대상" />
+              <SummaryCard label="대기" value={String(nextSummary.waitlistedCount)} unit="명" tone="info" note="전환 후보" />
+              <SummaryCard label="확정 필요" value={String(nextSummary.confirmationNeededCount)} unit="명" tone="neutral" note="정원 대비" />
             </section>
 
             <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_392px]">
@@ -425,7 +432,7 @@ function OperatorDashboard({
                   </div>
                   <p className="mt-4 text-3xl font-bold">CRUD 준비 완료</p>
                   <p className="mt-3 text-sm leading-6 text-white/70">
-                    모임 생성, 수정, 삭제가 기록되면 다음 단계에서 참석 응답과 신뢰도 계산을 붙일 수 있습니다.
+                    응답률과 미응답, 대기 인원을 기준으로 다음 운영 액션을 먼저 확인합니다.
                   </p>
                 </section>
               </aside>
@@ -480,6 +487,10 @@ const getCurrentSession = cache(async function getCurrentSession() {
       return { nickname, team: null };
     }
 
+    const memberCountPromise = supabase
+      .from("team_members")
+      .select("id", { count: "exact", head: true })
+      .eq("team_id", joinedTeam.id);
     const { data: matches, error: matchesError } = await supabase
       .from("matches")
       .select("id, title, starts_at, created_by, location_note, capacity, allow_waitlist, attendance_method, attendance_closes_at")
@@ -497,10 +508,32 @@ const getCurrentSession = cache(async function getCurrentSession() {
       : { data: null };
 
     const matchRows = (matches ?? fallbackMatches ?? []) as DashboardMatchRow[];
+    const matchIds = matchRows.map((match) => match.id);
+    const [{ count: teamMemberCount }, { data: attendanceRows }] = await Promise.all([
+      memberCountPromise,
+      matchIds.length > 0
+        ? supabase.from("match_attendances").select("match_id, status").in("match_id", matchIds)
+        : Promise.resolve({ data: [] })
+    ]);
+    const attendanceSummaryByMatchId = new Map<string, DashboardMeeting["attendanceSummary"]>();
+
+    for (const match of matchRows) {
+      const rowsForMatch = ((attendanceRows ?? []) as DashboardAttendanceRow[]).filter(
+        (attendance) => attendance.match_id === match.id
+      );
+      attendanceSummaryByMatchId.set(
+        match.id,
+        buildAttendanceSummary(rowsForMatch, {
+          teamMemberCount: teamMemberCount ?? 0,
+          capacity: match.capacity
+        })
+      );
+    }
+
     const meetings = mapDashboardMeetings(matchRows, {
       currentUserId: user.id,
       role: typedMembership.role
-    });
+    }, attendanceSummaryByMatchId);
 
     return {
       nickname,

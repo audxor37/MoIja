@@ -20,6 +20,12 @@ test("maps only the dashboard meeting limit", () => {
   assert.equal(meetings.length, DASHBOARD_MEETING_LIMIT);
   assert.equal(meetings[0]?.id, "match-0");
   assert.equal(meetings[0]?.canManage, true);
+  assert.deepEqual(meetings[0]?.attendanceSummary, {
+    responseRate: 0,
+    unansweredCount: 0,
+    waitlistedCount: 0,
+    confirmationNeededCount: 18
+  });
   assert.equal(meetings[1]?.canManage, false);
   assert.equal(meetings.at(-1)?.id, `match-${DASHBOARD_MEETING_LIMIT - 1}`);
 });

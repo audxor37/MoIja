@@ -359,6 +359,18 @@ on match_attendances for insert
 to authenticated
 with check (profile_id = auth.uid());
 
+create policy "attendances_insert_manager"
+on match_attendances for insert
+to authenticated
+with check (
+  exists (
+    select 1
+    from matches
+    where matches.id = match_attendances.match_id
+      and private.is_team_member(matches.team_id, array['owner', 'manager']::team_role[])
+  )
+);
+
 create policy "attendances_update_own_or_manager"
 on match_attendances for update
 to authenticated

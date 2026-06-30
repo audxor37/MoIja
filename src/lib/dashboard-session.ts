@@ -1,4 +1,5 @@
 import { canManageMeeting } from "./meetings";
+import type { AttendanceStatus } from "./attendance";
 
 export const DASHBOARD_MEETING_LIMIT = 20;
 
@@ -12,6 +13,12 @@ export type DashboardMeeting = {
   attendanceMethod: string;
   attendanceClosesAt: string | null;
   canManage: boolean;
+  attendanceSummary: {
+    responseRate: number;
+    unansweredCount: number;
+    waitlistedCount: number;
+    confirmationNeededCount: number;
+  };
 };
 
 export type DashboardMatchRow = {
@@ -28,7 +35,8 @@ export type DashboardMatchRow = {
 
 export function mapDashboardMeetings(
   matchRows: DashboardMatchRow[],
-  permission: { currentUserId: string; role: string | null | undefined }
+  permission: { currentUserId: string; role: string | null | undefined },
+  attendanceSummaryByMatchId: Map<string, DashboardMeeting["attendanceSummary"]> = new Map()
 ) {
   return matchRows.slice(0, DASHBOARD_MEETING_LIMIT).map((match) => ({
     id: match.id,
@@ -43,6 +51,17 @@ export function mapDashboardMeetings(
       currentUserId: permission.currentUserId,
       createdBy: match.created_by,
       role: permission.role
-    })
+    }),
+    attendanceSummary: attendanceSummaryByMatchId.get(match.id) ?? {
+      responseRate: 0,
+      unansweredCount: 0,
+      waitlistedCount: 0,
+      confirmationNeededCount: match.capacity ?? 0
+    }
   }));
 }
+
+export type DashboardAttendanceRow = {
+  match_id: string;
+  status: AttendanceStatus;
+};

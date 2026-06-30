@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   ATTENDANCE_RESPONSE_STATUSES,
+  buildAttendanceSummary,
   attendanceStatusLabel,
   canSubmitAttendanceResponse,
   shouldWriteAttendanceEvent,
@@ -36,4 +37,26 @@ test("blocks waitlist responses when the meeting does not allow waitlisting", ()
   assert.equal(canSubmitAttendanceResponse("absent", false), true);
   assert.equal(canSubmitAttendanceResponse("waitlisted", true), true);
   assert.equal(canSubmitAttendanceResponse("waitlisted", false), false);
+});
+
+test("summarizes attendance groups and response metrics for operators", () => {
+  const summary = buildAttendanceSummary(
+    [
+      { status: "attending" },
+      { status: "attending" },
+      { status: "waitlisted" },
+      { status: "absent" },
+      { status: "no_show" }
+    ],
+    { teamMemberCount: 7, capacity: 4 }
+  );
+
+  assert.equal(summary.attendingCount, 2);
+  assert.equal(summary.waitlistedCount, 1);
+  assert.equal(summary.absentCount, 1);
+  assert.equal(summary.noShowCount, 1);
+  assert.equal(summary.respondedCount, 5);
+  assert.equal(summary.unansweredCount, 2);
+  assert.equal(summary.responseRate, 71);
+  assert.equal(summary.confirmationNeededCount, 2);
 });

@@ -9,19 +9,21 @@ import {
   Timer,
   Users
 } from "lucide-react";
-import { respondToMeetingAttendance } from "@/app/meetings/actions";
+import { respondToMeetingAttendance, updateManagedAttendance } from "@/app/meetings/actions";
 import {
+  buildAttendanceSummary,
   attendanceStatusLabel,
   canSubmitAttendanceResponse,
   type AttendanceStatus
 } from "@/lib/attendance";
-import { formatMeetingDateTime } from "@/lib/meetings";
+import { canManageMeeting, formatMeetingDateTime } from "@/lib/meetings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const attendanceMessages: Record<string, string> = {
   auth_required: "로그인이 필요합니다. 다시 로그인해 주세요.",
   invalid_status: "참석 응답 값을 다시 확인해 주세요.",
   missing_meeting: "모임 정보를 찾지 못했습니다.",
+  permission_denied: "출석을 관리할 Owner 또는 Manager 권한이 필요합니다.",
   save_failed: "참석 응답 저장에 실패했습니다. 잠시 후 다시 시도해 주세요."
 };
 
@@ -66,7 +68,7 @@ export default async function MeetingDetailPage({
 
   const { data: meeting } = await supabase
     .from("matches")
-    .select("id, team_id, title, starts_at, location_note, memo, capacity, allow_waitlist, attendance_method, attendance_closes_at")
+    .select("id, team_id, created_by, title, starts_at, location_note, memo, capacity, allow_waitlist, attendance_method, attendance_closes_at")
     .eq("id", id)
     .maybeSingle();
 
@@ -83,6 +85,48 @@ export default async function MeetingDetailPage({
     .eq("profile_id", user.id)
     .maybeSingle();
   const myAttendance = attendance as { status: AttendanceStatus; updated_at: string } | null;
+  const { data: membership } = await supabase
+    .from("team_members")
+    .select("role")
+    .eq("team_id", currentMeeting.team_id)
+    .eq("profile_id", user.id)
+    .maybeSingle();
+  const currentRole = (membership as { role?: string } | null)?.role ?? null;
+  const canManageAttendance = canManageMeeting({
+    currentUserId: user.id,
+    createdBy: currentMeeting.created_by,
+    role: currentRole
+  });
+  const [membersResult, attendancesResult] = canManageAttendance
+    ? await Promise.all([
+        supabase
+          .from("team_members")
+          .select("profile_id, role, profiles(nickname, avatar_url)")
+          .eq("team_id", currentMeeting.team_id)
+          .order("joined_at", { ascending: true }),
+        supabase
+          .from("match_attendances")
+          .select("id, profile_id, status, updated_at")
+          .eq("match_id", currentMeeting.id)
+      ])
+    : [{ data: null }, { data: null }];
+  const attendanceRows = ((attendancesResult.data ?? []) as AttendanceRow[]);
+  const attendanceByProfile = new Map(attendanceRows.map((row) => [row.profile_id, row]));
+  const memberRows = ((membersResult.data ?? []) as TeamMemberRow[]).map((member) => {
+    const profile = Array.isArray(member.profiles) ? member.profiles[0] : member.profiles;
+
+    return {
+      profileId: member.profile_id,
+      role: member.role,
+      nickname: profile?.nickname ?? "이름 없음",
+      avatarUrl: profile?.avatar_url ?? null,
+      attendance: attendanceByProfile.get(member.profile_id) ?? null
+    };
+  });
+  const summary = buildAttendanceSummary(attendanceRows, {
+    teamMemberCount: memberRows.length,
+    capacity: currentMeeting.capacity
+  });
   const message =
     query?.attendance_message ||
     (query?.attendance_error ? attendanceMessages[query.attendance_error] : null);
@@ -162,6 +206,32 @@ export default async function MeetingDetailPage({
                 ))}
               </div>
             </article>
+
+            {canManageAttendance ? (
+              <article className="rounded-2xl bg-white p-5 shadow-card sm:p-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold">운영자 출석 관리</h2>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-secondary">
+                      참석 신청과 실제 출석 처리를 분리해 관리합니다.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm font-bold sm:grid-cols-4">
+                    <StatusPill label="응답률" value={`${summary.responseRate}%`} />
+                    <StatusPill label="미응답" value={`${summary.unansweredCount}명`} />
+                    <StatusPill label="대기" value={`${summary.waitlistedCount}명`} />
+                    <StatusPill label="확정 필요" value={`${summary.confirmationNeededCount}명`} />
+                  </div>
+                </div>
+                <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                  <AttendanceGroup title="참석 예정" status="attending" members={memberRows} meetingId={currentMeeting.id} />
+                  <AttendanceGroup title="대기" status="waitlisted" members={memberRows} meetingId={currentMeeting.id} />
+                  <AttendanceGroup title="불참" status="absent" members={memberRows} meetingId={currentMeeting.id} />
+                  <AttendanceGroup title="미응답" status={null} members={memberRows} meetingId={currentMeeting.id} />
+                  <AttendanceGroup title="노쇼" status="no_show" members={memberRows} meetingId={currentMeeting.id} />
+                </div>
+              </article>
+            ) : null}
           </section>
 
           <aside className="grid gap-5 self-start">
@@ -190,6 +260,7 @@ export default async function MeetingDetailPage({
 type MeetingRecord = {
   id: string;
   team_id: string;
+  created_by: string | null;
   title: string;
   starts_at: string;
   location_note: string | null;
@@ -199,6 +270,104 @@ type MeetingRecord = {
   attendance_method: string;
   attendance_closes_at: string | null;
 };
+
+type AttendanceRow = {
+  id: string;
+  profile_id: string;
+  status: AttendanceStatus;
+  updated_at: string;
+};
+
+type TeamMemberRow = {
+  profile_id: string;
+  role: string;
+  profiles?: { nickname?: string | null; avatar_url?: string | null } | { nickname?: string | null; avatar_url?: string | null }[] | null;
+};
+
+type ManagedMember = {
+  profileId: string;
+  role: string;
+  nickname: string;
+  avatarUrl: string | null;
+  attendance: AttendanceRow | null;
+};
+
+function AttendanceGroup({
+  title,
+  status,
+  members,
+  meetingId
+}: {
+  title: string;
+  status: AttendanceStatus | null;
+  members: ManagedMember[];
+  meetingId: string;
+}) {
+  const filteredMembers = members.filter((member) => (member.attendance?.status ?? null) === status);
+
+  return (
+    <section className="rounded-xl border border-line bg-surfaceAlt p-4">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="font-bold">{title}</h3>
+        <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-secondary">{filteredMembers.length}명</span>
+      </div>
+      <div className="mt-3 grid gap-2">
+        {filteredMembers.length > 0 ? (
+          filteredMembers.map((member) => (
+            <div className="rounded-xl bg-white px-3 py-3" key={member.profileId}>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-bold">{member.nickname}</p>
+                  <p className="mt-1 text-xs font-semibold text-muted">{member.role}</p>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  {status !== "attending" ? (
+                    <AttendanceActionButton meetingId={meetingId} profileId={member.profileId} status="attending" label="확정" />
+                  ) : null}
+                  {status !== "no_show" ? (
+                    <AttendanceActionButton meetingId={meetingId} profileId={member.profileId} status="no_show" label="노쇼" danger />
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="rounded-xl bg-white px-3 py-4 text-sm font-semibold text-muted">해당 멤버가 없습니다.</p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function AttendanceActionButton({
+  meetingId,
+  profileId,
+  status,
+  label,
+  danger
+}: {
+  meetingId: string;
+  profileId: string;
+  status: AttendanceStatus;
+  label: string;
+  danger?: boolean;
+}) {
+  return (
+    <form action={updateManagedAttendance}>
+      <input name="meetingId" type="hidden" value={meetingId} />
+      <input name="profileId" type="hidden" value={profileId} />
+      <input name="status" type="hidden" value={status} />
+      <button
+        className={`h-9 rounded-lg px-3 text-xs font-bold transition ${
+          danger ? "border border-[#FFD7D7] bg-white text-danger hover:bg-[#FFF1F1]" : "bg-primary text-white hover:bg-[#12843D]"
+        }`}
+        type="submit"
+      >
+        {label}
+      </button>
+    </form>
+  );
+}
 
 function InfoRow({
   icon: Icon,

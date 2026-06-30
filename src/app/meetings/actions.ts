@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import {
   canSubmitAttendanceResponse,
   shouldWriteAttendanceEvent,
+  validateOperatorAttendanceStatus,
   validateAttendanceResponseStatus,
   type AttendanceStatus
 } from "@/lib/attendance";
@@ -24,6 +25,7 @@ const attendanceErrorParams: Record<string, string> = {
   auth: "attendance_error=auth_required",
   invalid: "attendance_error=invalid_status",
   missing: "attendance_error=missing_meeting",
+  permission: "attendance_error=permission_denied",
   save: "attendance_error=save_failed"
 };
 
@@ -392,4 +394,81 @@ export async function respondToMeetingAttendance(formData: FormData) {
   }
 
   redirectWithAttendanceMessage("참석 응답을 저장했습니다.", meetingId);
+}
+
+export async function updateManagedAttendance(formData: FormData) {
+  const meetingId = formValue(formData, "meetingId");
+  const profileId = formValue(formData, "profileId");
+  const nextStatus = validateOperatorAttendanceStatus(formValue(formData, "status"));
+
+  if (!meetingId) {
+    redirectWithMeetingError("missing");
+  }
+
+  if (!profileId || !nextStatus) {
+    redirectWithAttendanceError("invalid", meetingId);
+  }
+
+  const { supabase, user } = await getCurrentUserAndTeam();
+
+  if (!user) {
+    redirectWithAttendanceError("auth", meetingId);
+  }
+
+  const { meeting, canManage } = await getMeetingManagementContext(supabase, user.id, meetingId);
+
+  if (!meeting) {
+    redirectWithAttendanceError("missing", meetingId);
+  }
+
+  if (!canManage) {
+    redirectWithAttendanceError("permission", meetingId);
+  }
+
+  const { data: existing } = await supabase
+    .from("match_attendances")
+    .select("id, status")
+    .eq("match_id", meetingId)
+    .eq("profile_id", profileId)
+    .maybeSingle();
+  const previousStatus = (existing as { id: string; status: AttendanceStatus } | null)?.status ?? null;
+
+  const { data: attendance, error: attendanceError } = await supabase
+    .from("match_attendances")
+    .upsert(
+      {
+        match_id: meetingId,
+        profile_id: profileId,
+        status: nextStatus
+      },
+      { onConflict: "match_id,profile_id" }
+    )
+    .select("id")
+    .single();
+
+  if (attendanceError || !attendance) {
+    console.error("[attendance:manage] Upsert failed.", attendanceError);
+    redirectWithAttendanceError("save", meetingId);
+  }
+
+  if (shouldWriteAttendanceEvent(previousStatus, nextStatus)) {
+    const { error: eventError } = await supabase.from("attendance_events").insert({
+      attendance_id: attendance.id,
+      previous_status: previousStatus,
+      next_status: nextStatus,
+      changed_by: user.id
+    });
+
+    if (eventError) {
+      console.error("[attendance:manage] Event insert failed.", eventError);
+      redirectWithAttendanceError("save", meetingId);
+    }
+  }
+
+  revalidatePath("/");
+  revalidatePath(`/meetings/${meetingId}`);
+  redirectWithAttendanceMessage(
+    nextStatus === "no_show" ? "노쇼 처리했습니다." : "출석 상태를 확정했습니다.",
+    meetingId
+  );
 }
