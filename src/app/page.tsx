@@ -13,27 +13,19 @@ import {
   ShieldCheck,
   UserCheck,
   Timer,
-  Trash2,
   Trophy,
   UserRoundPlus,
   Users
 } from "lucide-react";
 import Link from "next/link";
-import { cache } from "react";
 import { createOrganizerTeam, joinTeamByInvite } from "@/app/onboarding/actions";
-import { deleteMeeting } from "@/app/meetings/actions";
+import { DashboardCacheHydrator } from "@/components/dashboard-cache-hydrator";
+import { DeleteMeetingButton } from "@/components/delete-meeting-button";
 import { InviteCodeCopyButton } from "@/components/invite-code-copy-button";
-import { buildAttendanceSummary } from "@/lib/attendance";
 import { attendanceStatusLabel } from "@/lib/attendance";
-import {
-  DASHBOARD_MEETING_LIMIT,
-  type DashboardAttendanceRow,
-  type DashboardMeeting,
-  type DashboardMatchRow,
-  mapDashboardMeetings
-} from "@/lib/dashboard-session";
+import type { DashboardMeeting } from "@/lib/dashboard-session";
 import { formatMeetingDateTime } from "@/lib/meetings";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getDashboardSession, type TeamSession } from "@/lib/server/dashboard-data";
 import { canManageTeamRole, teamRoleLabel } from "@/lib/team-management";
 
 const navItems = [
@@ -77,14 +69,6 @@ const bottomNav = [
   { label: "내 정보", icon: ShieldCheck }
 ];
 
-type TeamSession = {
-  id: string;
-  name: string;
-  role: string;
-  inviteCode: string | null;
-  meetings: DashboardMeeting[];
-};
-
 export default async function Home({
   searchParams
 }: {
@@ -102,27 +86,41 @@ export default async function Home({
   const meetingError = params?.meeting_error ? meetingMessages[params.meeting_error] : null;
   const onboardingMessage = params?.onboarding_message ?? null;
   const meetingMessage = params?.meeting_message ?? null;
-  const session = await getCurrentSession();
+  const session = await getDashboardSession();
 
   if (!session.nickname) {
-    return <PublicHome authMessage={authMessage} />;
+    return (
+      <>
+        <DashboardCacheHydrator initialData={session} />
+        <PublicHome authMessage={authMessage} />
+      </>
+    );
   }
 
   if (!session.team) {
     return (
-      <OnboardingStart
-        message={authMessage || onboardingError || onboardingMessage}
-        nickname={session.nickname}
-      />
+      <>
+        <DashboardCacheHydrator initialData={session} />
+        <OnboardingStart
+          message={authMessage || onboardingError || onboardingMessage}
+          nickname={session.nickname}
+        />
+      </>
     );
   }
 
   const message = authMessage || meetingError || meetingMessage;
 
   return canManageTeamRole(session.team.role) ? (
-    <OperatorDashboard message={message} nickname={session.nickname} team={session.team} />
+    <>
+      <DashboardCacheHydrator initialData={session} />
+      <OperatorDashboard message={message} nickname={session.nickname} team={session.team} />
+    </>
   ) : (
-    <MemberDashboard message={message} nickname={session.nickname} team={session.team} />
+    <>
+      <DashboardCacheHydrator initialData={session} />
+      <MemberDashboard message={message} nickname={session.nickname} team={session.team} />
+    </>
   );
 }
 
@@ -535,124 +533,6 @@ function MemberDashboard({
   );
 }
 
-const getCurrentSession = cache(async function getCurrentSession() {
-  try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user }
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return { nickname: null, team: null };
-    }
-
-    const profilePromise = supabase.from("profiles").select("nickname").eq("id", user.id).maybeSingle();
-    const membershipPromise = supabase
-      .from("team_members")
-      .select("role, teams(id, name, invite_code)")
-      .eq("profile_id", user.id)
-      .order("joined_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    const [{ data: profile }, { data: membership }] = await Promise.all([profilePromise, membershipPromise]);
-    const nickname =
-      profile?.nickname ||
-      (typeof user.user_metadata.nickname === "string" ? user.user_metadata.nickname : null) ||
-      (typeof user.user_metadata.name === "string" ? user.user_metadata.name : null) ||
-      "운영자";
-
-    type TeamRecord = { id: string; name: string; invite_code: string | null };
-    const typedMembership = membership as
-      | {
-          role?: string;
-          teams?: TeamRecord | TeamRecord[] | null;
-        }
-      | null;
-    const joinedTeam = Array.isArray(typedMembership?.teams)
-      ? typedMembership?.teams[0]
-      : typedMembership?.teams;
-
-    if (!joinedTeam || !typedMembership?.role) {
-      return { nickname, team: null };
-    }
-
-    const memberCountPromise = supabase
-      .from("team_members")
-      .select("id", { count: "exact", head: true })
-      .eq("team_id", joinedTeam.id);
-    const { data: matches, error: matchesError } = await supabase
-      .from("matches")
-      .select("id, title, starts_at, created_by, location_note, capacity, allow_waitlist, attendance_method, attendance_closes_at")
-      .eq("team_id", joinedTeam.id)
-      .order("starts_at", { ascending: true })
-      .limit(DASHBOARD_MEETING_LIMIT);
-
-    const { data: fallbackMatches } = matchesError
-      ? await supabase
-          .from("matches")
-          .select("id, title, starts_at, created_by, capacity, attendance_method, attendance_closes_at")
-          .eq("team_id", joinedTeam.id)
-          .order("starts_at", { ascending: true })
-          .limit(DASHBOARD_MEETING_LIMIT)
-      : { data: null };
-
-    const matchRows = (matches ?? fallbackMatches ?? []) as DashboardMatchRow[];
-    const matchIds = matchRows.map((match) => match.id);
-    const [{ count: teamMemberCount }, { data: attendanceRows }, { data: myAttendanceRows }] = await Promise.all([
-      memberCountPromise,
-      matchIds.length > 0
-        ? supabase.from("match_attendances").select("match_id, status").in("match_id", matchIds)
-        : Promise.resolve({ data: [] }),
-      matchIds.length > 0
-        ? supabase.from("match_attendances").select("match_id, status").eq("profile_id", user.id).in("match_id", matchIds)
-        : Promise.resolve({ data: [] })
-    ]);
-    const attendanceSummaryByMatchId = new Map<string, DashboardMeeting["attendanceSummary"]>();
-    const myAttendanceStatusByMatchId = new Map<string, DashboardMeeting["myAttendanceStatus"]>();
-
-    for (const row of (myAttendanceRows ?? []) as DashboardAttendanceRow[]) {
-      myAttendanceStatusByMatchId.set(row.match_id, row.status);
-    }
-
-    for (const match of matchRows) {
-      const rowsForMatch = ((attendanceRows ?? []) as DashboardAttendanceRow[]).filter(
-        (attendance) => attendance.match_id === match.id
-      );
-      attendanceSummaryByMatchId.set(
-        match.id,
-        buildAttendanceSummary(rowsForMatch, {
-          teamMemberCount: teamMemberCount ?? 0,
-          capacity: match.capacity
-        })
-      );
-    }
-
-    const meetings = mapDashboardMeetings(
-      matchRows,
-      {
-        currentUserId: user.id,
-        role: typedMembership.role
-      },
-      attendanceSummaryByMatchId,
-      myAttendanceStatusByMatchId
-    );
-
-    return {
-      nickname,
-      team: {
-        id: joinedTeam.id,
-        name: joinedTeam.name,
-        role: typedMembership.role,
-        inviteCode: joinedTeam.invite_code,
-        meetings
-      }
-    };
-  } catch {
-    return { nickname: null, team: null };
-  }
-});
-
 function Brand() {
   return (
     <div className="flex items-center gap-3">
@@ -802,16 +682,7 @@ function MeetingCard({ meeting, selected }: { meeting: DashboardMeeting; selecte
           >
             상세
           </Link>
-          <form action={deleteMeeting}>
-            <input name="meetingId" type="hidden" value={meeting.id} />
-            <button
-              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#FFD7D7] bg-white px-4 text-sm font-bold text-danger transition hover:bg-[#FFF1F1] sm:w-auto"
-              type="submit"
-            >
-              <Trash2 size={16} />
-              삭제
-            </button>
-          </form>
+          <DeleteMeetingButton meetingId={meeting.id} />
         </div>
       ) : (
         <div className="mt-4 border-t border-line pt-4">

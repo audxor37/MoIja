@@ -9,6 +9,7 @@ import {
   validateAttendanceResponseStatus,
   type AttendanceStatus
 } from "@/lib/attendance";
+import type { ActionResult } from "@/lib/action-result";
 import { canManageMeeting, validateMeetingInput } from "@/lib/meetings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -283,49 +284,72 @@ export async function updateMeeting(formData: FormData) {
 }
 
 export async function deleteMeeting(formData: FormData) {
+  const result = await performDeleteMeeting(formData);
+
+  if (!result.ok) {
+    redirectWithMeetingError(result.code as keyof typeof meetingErrorParams);
+  }
+
+  revalidatePath("/");
+  redirectWithMeetingMessage(result.message);
+}
+
+export async function performDeleteMeeting(formData: FormData): Promise<ActionResult<{ meetingId: string; teamId: string }>> {
   const meetingId = formValue(formData, "meetingId");
 
   if (!meetingId) {
-    redirectWithMeetingError("missing");
+    return { ok: false, code: "missing", message: "모임 정보를 찾지 못했습니다." };
   }
 
   const { supabase, user } = await getCurrentUserAndTeam();
 
   if (!user) {
-    redirectWithMeetingError("auth");
+    return { ok: false, code: "auth", message: "로그인이 필요합니다." };
   }
 
   const { meeting, canManage } = await getMeetingManagementContext(supabase, user.id, meetingId);
 
   if (!meeting) {
-    redirectWithMeetingError("missing");
+    return { ok: false, code: "missing", message: "모임 정보를 찾지 못했습니다." };
   }
 
   if (!canManage) {
-    redirectWithMeetingError("permission");
+    return { ok: false, code: "permission", message: "모임을 관리할 Owner 또는 Manager 권한이 필요합니다." };
   }
 
   const { error } = await supabase.from("matches").delete().eq("id", meetingId).eq("team_id", meeting.team_id);
 
   if (error) {
     console.error("[meetings:delete] Delete failed.", error);
-    redirectWithMeetingError("delete");
+    return { ok: false, code: "delete", message: "모임 삭제에 실패했습니다." };
   }
 
-  revalidatePath("/");
-  redirectWithMeetingMessage("모임을 삭제했습니다.");
+  return { ok: true, message: "모임을 삭제했습니다.", data: { meetingId, teamId: meeting.team_id } };
 }
 
 export async function respondToMeetingAttendance(formData: FormData) {
+  const result = await performRespondToMeetingAttendance(formData);
+  const meetingId = formValue(formData, "meetingId");
+
+  if (!result.ok) {
+    redirectWithAttendanceError(result.code as keyof typeof attendanceErrorParams, meetingId);
+  }
+
+  redirectWithAttendanceMessage(result.message, meetingId);
+}
+
+export async function performRespondToMeetingAttendance(
+  formData: FormData
+): Promise<ActionResult<{ meetingId: string; status: AttendanceStatus }>> {
   const meetingId = formValue(formData, "meetingId");
   const nextStatus = validateAttendanceResponseStatus(formValue(formData, "status"));
 
   if (!meetingId) {
-    redirectWithMeetingError("missing");
+    return { ok: false, code: "missing", message: "모임 정보를 찾지 못했습니다." };
   }
 
   if (!nextStatus) {
-    redirectWithAttendanceError("invalid", meetingId);
+    return { ok: false, code: "invalid", message: "참석 응답 값을 다시 확인해 주세요." };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -334,7 +358,7 @@ export async function respondToMeetingAttendance(formData: FormData) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirectWithAttendanceError("auth", meetingId);
+    return { ok: false, code: "auth", message: "로그인이 필요합니다. 다시 로그인해 주세요." };
   }
 
   const { data: meeting } = await supabase
@@ -344,13 +368,13 @@ export async function respondToMeetingAttendance(formData: FormData) {
     .maybeSingle();
 
   if (!meeting) {
-    redirectWithAttendanceError("missing", meetingId);
+    return { ok: false, code: "missing", message: "모임 정보를 찾지 못했습니다." };
   }
 
   const currentMeeting = meeting as { id: string; allow_waitlist: boolean | null };
 
   if (!canSubmitAttendanceResponse(nextStatus, currentMeeting.allow_waitlist ?? true)) {
-    redirectWithAttendanceError("invalid", meetingId);
+    return { ok: false, code: "invalid", message: "참석 응답 값을 다시 확인해 주세요." };
   }
 
   const { data: existing } = await supabase
@@ -376,7 +400,7 @@ export async function respondToMeetingAttendance(formData: FormData) {
 
   if (attendanceError || !attendance) {
     console.error("[attendance:respond] Upsert failed.", attendanceError);
-    redirectWithAttendanceError("save", meetingId);
+    return { ok: false, code: "save", message: "참석 응답 저장에 실패했습니다. 잠시 후 다시 시도해 주세요." };
   }
 
   if (shouldWriteAttendanceEvent(previousStatus, nextStatus)) {
@@ -389,40 +413,55 @@ export async function respondToMeetingAttendance(formData: FormData) {
 
     if (eventError) {
       console.error("[attendance:respond] Event insert failed.", eventError);
-      redirectWithAttendanceError("save", meetingId);
+      return { ok: false, code: "save", message: "참석 응답 저장에 실패했습니다. 잠시 후 다시 시도해 주세요." };
     }
   }
 
-  redirectWithAttendanceMessage("참석 응답을 저장했습니다.", meetingId);
+  return { ok: true, message: "참석 응답을 저장했습니다.", data: { meetingId, status: nextStatus } };
 }
 
 export async function updateManagedAttendance(formData: FormData) {
+  const result = await performUpdateManagedAttendance(formData);
+  const meetingId = formValue(formData, "meetingId");
+
+  if (!result.ok) {
+    redirectWithAttendanceError(result.code as keyof typeof attendanceErrorParams, meetingId);
+  }
+
+  revalidatePath("/");
+  revalidatePath(`/meetings/${meetingId}`);
+  redirectWithAttendanceMessage(result.message, meetingId);
+}
+
+export async function performUpdateManagedAttendance(
+  formData: FormData
+): Promise<ActionResult<{ meetingId: string; profileId: string; status: AttendanceStatus }>> {
   const meetingId = formValue(formData, "meetingId");
   const profileId = formValue(formData, "profileId");
   const nextStatus = validateOperatorAttendanceStatus(formValue(formData, "status"));
 
   if (!meetingId) {
-    redirectWithMeetingError("missing");
+    return { ok: false, code: "missing", message: "모임 정보를 찾지 못했습니다." };
   }
 
   if (!profileId || !nextStatus) {
-    redirectWithAttendanceError("invalid", meetingId);
+    return { ok: false, code: "invalid", message: "참석 응답 값을 다시 확인해 주세요." };
   }
 
   const { supabase, user } = await getCurrentUserAndTeam();
 
   if (!user) {
-    redirectWithAttendanceError("auth", meetingId);
+    return { ok: false, code: "auth", message: "로그인이 필요합니다. 다시 로그인해 주세요." };
   }
 
   const { meeting, canManage } = await getMeetingManagementContext(supabase, user.id, meetingId);
 
   if (!meeting) {
-    redirectWithAttendanceError("missing", meetingId);
+    return { ok: false, code: "missing", message: "모임 정보를 찾지 못했습니다." };
   }
 
   if (!canManage) {
-    redirectWithAttendanceError("permission", meetingId);
+    return { ok: false, code: "permission", message: "출석을 관리할 Owner 또는 Manager 권한이 필요합니다." };
   }
 
   const { data: existing } = await supabase
@@ -448,7 +487,7 @@ export async function updateManagedAttendance(formData: FormData) {
 
   if (attendanceError || !attendance) {
     console.error("[attendance:manage] Upsert failed.", attendanceError);
-    redirectWithAttendanceError("save", meetingId);
+    return { ok: false, code: "save", message: "참석 응답 저장에 실패했습니다. 잠시 후 다시 시도해 주세요." };
   }
 
   if (shouldWriteAttendanceEvent(previousStatus, nextStatus)) {
@@ -461,14 +500,13 @@ export async function updateManagedAttendance(formData: FormData) {
 
     if (eventError) {
       console.error("[attendance:manage] Event insert failed.", eventError);
-      redirectWithAttendanceError("save", meetingId);
+      return { ok: false, code: "save", message: "참석 응답 저장에 실패했습니다. 잠시 후 다시 시도해 주세요." };
     }
   }
 
-  revalidatePath("/");
-  revalidatePath(`/meetings/${meetingId}`);
-  redirectWithAttendanceMessage(
-    nextStatus === "no_show" ? "노쇼 처리했습니다." : "출석 상태를 확정했습니다.",
-    meetingId
-  );
+  return {
+    ok: true,
+    message: nextStatus === "no_show" ? "노쇼 처리했습니다." : "출석 상태를 확정했습니다.",
+    data: { meetingId, profileId, status: nextStatus }
+  };
 }
