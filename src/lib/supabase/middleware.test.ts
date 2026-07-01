@@ -2,8 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { shouldRefreshSessionInMiddleware } from "./middleware";
 
-test("skips middleware auth refresh on dashboard and new meeting navigation", () => {
-  assert.equal(shouldRefreshSessionInMiddleware("/"), false);
+test("refreshes middleware auth on dashboard, team, and dashboard API routes", () => {
+  assert.equal(shouldRefreshSessionInMiddleware("/"), true);
+  assert.equal(shouldRefreshSessionInMiddleware("/team"), true);
+  assert.equal(shouldRefreshSessionInMiddleware("/api/dashboard/session"), true);
+});
+
+test("skips middleware auth refresh on new meeting navigation", () => {
   assert.equal(shouldRefreshSessionInMiddleware("/meetings/new"), false);
 });
 

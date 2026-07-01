@@ -1,8 +1,7 @@
-import { Copy, RefreshCcw, ShieldCheck, Users } from "lucide-react";
+import { Copy } from "lucide-react";
 import Link from "next/link";
-import { InviteCodeCopyButton } from "@/components/invite-code-copy-button";
-import { regenerateTeamInviteCode, updateTeamMemberRole } from "@/app/team/actions";
-import { canAssignTeamRole, canManageTeamRole, TEAM_ROLES, teamRoleLabel } from "@/lib/team-management";
+import { TeamManagementPanel } from "@/components/team-management-panel";
+import { canManageTeamRole } from "@/lib/team-management";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const teamMessages: Record<string, string> = {
@@ -78,73 +77,20 @@ export default async function TeamPage({
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-6xl gap-6 px-4 py-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <aside className="grid gap-4">
-          <section className="rounded-2xl bg-white p-5 shadow-card">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#E8F7EE] text-primary">
-                <ShieldCheck size={22} />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-primary">{teamRoleLabel(typedMembership.role)}</p>
-                <h1 className="text-2xl font-bold">{team.name}</h1>
-              </div>
-            </div>
-            <div className="mt-5 grid gap-2">
-              <InviteCodeCopyButton inviteCode={team.invite_code} />
-              <form action={regenerateTeamInviteCode}>
-                <input name="teamId" type="hidden" value={team.id} />
-                <button className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-bold text-secondary" type="submit">
-                  <RefreshCcw size={16} />
-                  초대 코드 재발급
-                </button>
-              </form>
-            </div>
-          </section>
-
-          {(message || error) ? (
-            <div className="rounded-2xl border border-[#FBD6A3] bg-[#FFF7E8] px-5 py-4 text-sm font-semibold text-[#8A5200]">
-              {message || error}
-            </div>
-          ) : null}
-        </aside>
-
-        <section className="rounded-2xl bg-white p-5 shadow-card">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-bold">멤버 목록</h2>
-              <p className="mt-1 text-sm text-secondary">Owner, Manager, Coach, Member 역할을 관리합니다.</p>
-            </div>
-            <Users className="text-primary" size={24} />
-          </div>
-
-          <div className="mt-5 grid gap-3">
-            {rows.map((member) => (
-              <article className="rounded-2xl border border-line p-4" key={member.id}>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="font-bold">{member.nickname}</p>
-                    <p className="mt-1 text-xs font-semibold text-muted">{teamRoleLabel(member.role)}</p>
-                  </div>
-                  <form action={updateTeamMemberRole} className="flex gap-2">
-                    <input name="memberId" type="hidden" value={member.id} />
-                    <select className="field-input h-11 min-w-32 py-0 text-sm" defaultValue={member.role} name="role">
-                      {TEAM_ROLES.map((role) => (
-                        <option disabled={!canAssignTeamRole({ actorRole: typedMembership.role, currentTargetRole: member.role, nextTargetRole: role, isSelf: member.profileId === user.id }) && role !== member.role} key={role} value={role}>
-                          {teamRoleLabel(role)}
-                        </option>
-                      ))}
-                    </select>
-                    <button className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-white" type="submit">
-                      저장
-                    </button>
-                  </form>
-                </div>
-              </article>
-            ))}
+      {(message || error) ? (
+        <section className="mx-auto max-w-6xl px-4 pt-6">
+          <div className="rounded-2xl border border-[#FBD6A3] bg-[#FFF7E8] px-5 py-4 text-sm font-semibold text-[#8A5200]">
+            {message || error}
           </div>
         </section>
-      </section>
+      ) : null}
+
+      <TeamManagementPanel
+        actorRole={typedMembership.role}
+        currentUserId={user.id}
+        initialMembers={rows}
+        team={{ id: team.id, name: team.name, inviteCode: team.invite_code }}
+      />
     </main>
   );
 }

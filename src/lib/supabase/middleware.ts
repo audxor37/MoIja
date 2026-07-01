@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isMissingRefreshTokenError } from "@/lib/supabase/auth-error";
 
+const middlewareAuthRefreshExactPaths = ["/", "/team", "/api/dashboard/session"] as const;
 const middlewareAuthRefreshPaths = ["/meetings/"] as const;
 const middlewareAuthRefreshExclusions = ["/meetings/new"] as const;
 
@@ -13,7 +15,21 @@ export function shouldRefreshSessionInMiddleware(pathname: string) {
     return false;
   }
 
+  if (middlewareAuthRefreshExactPaths.includes(pathname as (typeof middlewareAuthRefreshExactPaths)[number])) {
+    return true;
+  }
+
   return middlewareAuthRefreshPaths.some((path) => pathname.startsWith(path));
+}
+
+function expireSupabaseAuthCookies(request: NextRequest, response: NextResponse) {
+  request.cookies
+    .getAll()
+    .filter(({ name }) => name.startsWith("sb-") && name.includes("auth-token"))
+    .forEach(({ name }) => {
+      request.cookies.delete(name);
+      response.cookies.set(name, "", { maxAge: 0, path: "/" });
+    });
 }
 
 export async function updateSession(request: NextRequest) {
@@ -47,7 +63,19 @@ export async function updateSession(request: NextRequest) {
     }
   });
 
-  await supabase.auth.getUser();
+  try {
+    const { error } = await supabase.auth.getUser();
+
+    if (error && isMissingRefreshTokenError(error)) {
+      expireSupabaseAuthCookies(request, response);
+    }
+  } catch (error) {
+    if (!isMissingRefreshTokenError(error)) {
+      throw error;
+    }
+
+    expireSupabaseAuthCookies(request, response);
+  }
 
   return response;
 }
