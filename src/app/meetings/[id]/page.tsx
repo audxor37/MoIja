@@ -91,7 +91,8 @@ export default async function MeetingDetailPage({
     matchGuestsResult,
     matchInvitesResult,
     lineupResult,
-    matchRecordResult
+    matchRecordResult,
+    playerRecordsResult
   ] = await Promise.all([
     canManageAttendance || canManageLineup
       ? supabase
@@ -119,6 +120,12 @@ export default async function MeetingDetailPage({
           .select("result, goals_for, goals_against, opponent_name, formation, memo")
           .eq("match_id", currentMeeting.id)
           .maybeSingle()
+      : { data: null },
+    canManageAttendance
+      ? supabase
+          .from("player_match_records")
+          .select("profile_id, guest_id, goals, assists, position_code")
+          .eq("match_id", currentMeeting.id)
       : { data: null }
   ]);
   const cyclePlayers: MatchCyclePlayer[] = [
@@ -228,6 +235,13 @@ export default async function MeetingDetailPage({
                       }
                     : null
                 }
+                initialPlayerRecords={((playerRecordsResult.data ?? []) as PlayerMatchRecordRow[]).map((record) => ({
+                  profileId: record.profile_id,
+                  guestId: record.guest_id,
+                  goals: record.goals,
+                  assists: record.assists,
+                  positionCode: record.position_code
+                }))}
                 meetingId={currentMeeting.id}
                 meetingTitle={currentMeeting.title}
               />
@@ -288,6 +302,14 @@ type MatchRecordRow = {
   opponent_name: string | null;
   formation: string | null;
   memo: string | null;
+};
+
+type PlayerMatchRecordRow = {
+  profile_id: string | null;
+  guest_id: string | null;
+  goals: number;
+  assists: number;
+  position_code: string | null;
 };
 
 function InfoRow({
