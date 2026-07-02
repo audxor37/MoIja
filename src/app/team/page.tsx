@@ -2,6 +2,7 @@ import { Copy } from "lucide-react";
 import Link from "next/link";
 import { TeamManagementPanel } from "@/components/team-management-panel";
 import { canManageTeamRole } from "@/lib/team-management";
+import { getCurrentUserId } from "@/lib/supabase/auth-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const teamMessages: Record<string, string> = {
@@ -24,18 +25,16 @@ export default async function TeamPage({
 }) {
   const params = await searchParams;
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const userId = await getCurrentUserId(supabase);
 
-  if (!user) {
+  if (!userId) {
     return <Shell message="로그인 후 팀 관리를 사용할 수 있습니다." />;
   }
 
   const { data: membership } = await supabase
     .from("team_members")
     .select("team_id, role, teams(id, name, invite_code)")
-    .eq("profile_id", user.id)
+    .eq("profile_id", userId)
     .order("joined_at", { ascending: true })
     .limit(1)
     .maybeSingle();
@@ -87,7 +86,7 @@ export default async function TeamPage({
 
       <TeamManagementPanel
         actorRole={typedMembership.role}
-        currentUserId={user.id}
+        currentUserId={userId}
         initialMembers={rows}
         team={{ id: team.id, name: team.name, inviteCode: team.invite_code }}
       />

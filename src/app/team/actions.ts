@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { ActionResult } from "@/lib/action-result";
 import { canAssignTeamRole, canManageTeamRole, isTeamRole } from "@/lib/team-management";
+import { getCurrentUserId } from "@/lib/supabase/auth-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function redirectWithTeamError(error: string): never {
@@ -36,11 +37,9 @@ export async function performUpdateTeamMemberRole(
   }
 
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const userId = await getCurrentUserId(supabase);
 
-  if (!user) {
+  if (!userId) {
     return { ok: false, code: "auth", message: "로그인이 필요합니다." };
   }
 
@@ -60,7 +59,7 @@ export async function performUpdateTeamMemberRole(
     .from("team_members")
     .select("role")
     .eq("team_id", targetMember.team_id)
-    .eq("profile_id", user.id)
+    .eq("profile_id", userId)
     .maybeSingle();
 
   const actorRole = (actor as { role?: string } | null)?.role ?? null;
@@ -70,7 +69,7 @@ export async function performUpdateTeamMemberRole(
       actorRole,
       currentTargetRole: targetMember.role,
       nextTargetRole: nextRole,
-      isSelf: targetMember.profile_id === user.id
+      isSelf: targetMember.profile_id === userId
     })
   ) {
     return { ok: false, code: "permission", message: "팀을 관리할 Owner 또는 Manager 권한이 필요합니다." };
@@ -111,11 +110,9 @@ export async function performRegenerateTeamInviteCode(
   }
 
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const userId = await getCurrentUserId(supabase);
 
-  if (!user) {
+  if (!userId) {
     return { ok: false, code: "auth", message: "로그인이 필요합니다." };
   }
 
@@ -123,7 +120,7 @@ export async function performRegenerateTeamInviteCode(
     .from("team_members")
     .select("role")
     .eq("team_id", teamId)
-    .eq("profile_id", user.id)
+    .eq("profile_id", userId)
     .maybeSingle();
 
   const role = (membership as { role?: string } | null)?.role ?? null;

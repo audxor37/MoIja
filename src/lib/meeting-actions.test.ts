@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildRespondToMeetingAttendanceRpcArgs,
   buildCreateMeetingRpcArgs,
+  mapRespondToMeetingAttendanceRpcError,
   MANAGER_TEAM_MEMBERSHIP_SELECT,
   toManagerTeam
 } from "./meeting-actions";
@@ -43,4 +45,25 @@ test("builds the create meeting rpc payload without client-side team lookup fiel
       input_allow_waitlist: true
     }
   );
+});
+
+test("builds the attendance response rpc payload", () => {
+  assert.deepEqual(
+    buildRespondToMeetingAttendanceRpcArgs({
+      meetingId: "match-1",
+      status: "attending"
+    }),
+    {
+      input_match_id: "match-1",
+      input_status: "attending"
+    }
+  );
+});
+
+test("maps attendance response rpc errors to action result codes", () => {
+  assert.equal(mapRespondToMeetingAttendanceRpcError({ code: "P0001", message: "auth_required" }), "auth");
+  assert.equal(mapRespondToMeetingAttendanceRpcError({ code: "P0001", message: "missing_meeting" }), "missing");
+  assert.equal(mapRespondToMeetingAttendanceRpcError({ code: "P0001", message: "invalid_status" }), "invalid");
+  assert.equal(mapRespondToMeetingAttendanceRpcError({ code: "42501", message: "new row violates row-level security policy" }), "save");
+  assert.equal(mapRespondToMeetingAttendanceRpcError(null), "save");
 });
