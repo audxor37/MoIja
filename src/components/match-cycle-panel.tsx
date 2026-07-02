@@ -1,23 +1,23 @@
 "use client";
 
 import { type Dispatch, type SetStateAction, useMemo, useRef, useState } from "react";
-import { Clipboard, Download, Plus, Save, Trophy, UserPlus } from "lucide-react";
+import { Download, Plus, Save, Share2, Trash2, Trophy, UserPlus, X } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  performAddGuestToMatch,
-  performCreateMatchInvite,
   performSaveLineup,
   performSaveMatchRecord,
   performUpdateGuestAttendance
 } from "@/app/meetings/actions";
 import {
   FORMATION_PRESETS,
+  buildInviteSharePayload,
   getBoardImageFileName,
   getBoardImageSaveFallback,
   getDefaultLineupSlots,
   getFormationPreset,
   guestStatusLabel,
   playerKindLabel,
+  summarizeScoringEvents,
   type LineupSlot
 } from "@/lib/match-cycle";
 import { queryKeys } from "@/lib/query-keys";
@@ -50,8 +50,20 @@ export type MatchRecordValue = {
   formation: string | null;
   memo: string | null;
 };
+export type PlayerRecordValue = {
+  profileId: string | null;
+  guestId: string | null;
+  goals: number;
+  assists: number;
+  positionCode: string | null;
+};
 
 type LineupSlotState = LineupSlot;
+type ScoringEventState = {
+  id: string;
+  scorerId: string;
+  assistId: string | null;
+};
 
 export function MatchCyclePanel({
   meetingId,
@@ -62,6 +74,7 @@ export function MatchCyclePanel({
   initialPlayers,
   initialLineup,
   initialRecord,
+  initialPlayerRecords,
   meetingTitle
 }: {
   meetingId: string;
@@ -73,15 +86,21 @@ export function MatchCyclePanel({
   initialPlayers: MatchCyclePlayer[];
   initialLineup: { formation: string; boardNote: string | null } | null;
   initialRecord: MatchRecordValue | null;
+  initialPlayerRecords: PlayerRecordValue[];
 }) {
   const queryClient = useQueryClient();
   const showToast = useToast();
   const boardRef = useRef<HTMLDivElement | null>(null);
-  const [invites, setInvites] = useState(initialInvites);
   const [players, setPlayers] = useState(initialPlayers);
   const [activeSection, setActiveSection] = useState<"lineup" | "guests" | "record">("lineup");
   const [formation, setFormation] = useState(getFormationPreset(initialLineup?.formation ?? initialRecord?.formation ?? "4-4-2").code);
   const [boardNote, setBoardNote] = useState(initialLineup?.boardNote ?? "");
+  const [scoringEvents, setScoringEvents] = useState<ScoringEventState[]>(() =>
+    buildInitialScoringEvents(initialPlayers, initialPlayerRecords)
+  );
+  const [isScoreModalOpen, setIsScoreModalOpen] = useState(false);
+  const [selectedScorerId, setSelectedScorerId] = useState("");
+  const [selectedAssistId, setSelectedAssistId] = useState("");
 
   const playablePlayers = useMemo(
     () => players.filter((player) => ["attending", "accepted", "confirmed"].includes(player.status)),
@@ -91,50 +110,8 @@ export function MatchCyclePanel({
     buildDefaultLineupState(initialLineup?.formation ?? initialRecord?.formation ?? "4-4-2", initialPlayers.filter((player) => ["attending", "accepted", "confirmed"].includes(player.status)))
   );
   const assignedPlayerIds = useMemo(() => new Set(lineupSlots.map((slot) => slot.playerId).filter(Boolean)), [lineupSlots]);
-
-  const inviteMutation = useMutation({
-    mutationFn: async () => {
-      const formData = new FormData();
-      formData.set("meetingId", meetingId);
-      return performCreateMatchInvite(formData);
-    },
-    onSuccess: (result) => {
-      showToast({ message: result.message, tone: result.ok ? "success" : "error" });
-      if (result.ok) {
-        setInvites((current) => [
-          { id: result.data.inviteCode, code: result.data.inviteCode, expiresAt: null, usedCount: 0, maxUses: null },
-          ...current
-        ]);
-      }
-    }
-  });
-
-  const addGuestMutation = useMutation({
-    mutationFn: async (displayName: string) => {
-      const formData = new FormData();
-      formData.set("meetingId", meetingId);
-      formData.set("displayName", displayName);
-      return performAddGuestToMatch(formData);
-    },
-    onSuccess: (result, displayName) => {
-      showToast({ message: result.message, tone: result.ok ? "success" : "error" });
-      if (result.ok) {
-        setPlayers((current) => [
-          ...current,
-          {
-            id: `guest:${result.data.guestId}`,
-            playerKind: "guest",
-            profileId: null,
-            guestId: result.data.guestId,
-            matchGuestId: null,
-            displayName,
-            status: result.data.status,
-            positionCode: null
-          }
-        ]);
-      }
-    }
-  });
+  const playerById = useMemo(() => new Map(players.map((player) => [player.id, player])), [players]);
+  const scoreOptions = Array.from({ length: 21 }, (_, index) => index);
 
   const guestStatusMutation = useMutation({
     mutationFn: async ({ matchGuestId, status }: { matchGuestId: string; status: string }) => {
@@ -176,11 +153,54 @@ export function MatchCyclePanel({
       const formData = new FormData(form);
       formData.set("meetingId", meetingId);
       formData.set("formation", formation);
-      formData.set("playerRecords", JSON.stringify(buildRecordPayload(playablePlayers)));
+      formData.set("playerRecords", JSON.stringify(buildRecordPayload(playablePlayers, scoringEvents)));
       return performSaveMatchRecord(formData);
     },
     onSuccess: (result) => showToast({ message: result.message, tone: result.ok ? "success" : "error" })
   });
+
+  async function shareInviteCode(inviteCode: string) {
+    const payload = buildInviteSharePayload({
+      inviteCode,
+      siteUrl: window.location.origin
+    });
+
+    try {
+      if (navigator.share) {
+        await navigator.share(payload);
+        showToast({ message: "초대 공유를 열었습니다." });
+        return;
+      }
+
+      await navigator.clipboard.writeText(`${payload.text}\n${payload.url}`);
+      showToast({ message: "공유가 제한된 환경이라 초대 내용을 복사했습니다." });
+    } catch {
+      showToast({ message: `공유가 제한된 환경입니다. 코드: ${inviteCode}`, tone: "error" });
+    }
+  }
+
+  function openScoreModal() {
+    setSelectedScorerId(playablePlayers[0]?.id ?? "");
+    setSelectedAssistId("");
+    setIsScoreModalOpen(true);
+  }
+
+  function addScoringEvent() {
+    if (!selectedScorerId) {
+      showToast({ message: "득점자를 선택해 주세요.", tone: "error" });
+      return;
+    }
+
+    setScoringEvents((current) => [
+      ...current,
+      {
+        id: `event:${Date.now()}:${current.length}`,
+        scorerId: selectedScorerId,
+        assistId: selectedAssistId || null
+      }
+    ]);
+    setIsScoreModalOpen(false);
+  }
 
   async function downloadBoardImage() {
     try {
@@ -195,20 +215,9 @@ export function MatchCyclePanel({
   async function saveBoardImageToPhotos() {
     try {
       const pngBlob = await createBoardPngBlob({ formation, slots: lineupSlots, note: boardNote });
-      if ("ClipboardItem" in window && navigator.clipboard?.write) {
-        try {
-          await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })]);
-          showToast({ message: "라인업 이미지를 복사했습니다." });
-          return;
-        } catch {
-          await saveBoardImageWithFallback(pngBlob);
-          return;
-        }
-      }
-
       await saveBoardImageWithFallback(pngBlob);
     } catch {
-      showToast({ message: "라인업 이미지 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.", tone: "error" });
+      showToast({ message: "라인업 이미지 공유에 실패했습니다. 잠시 후 다시 시도해 주세요.", tone: "error" });
     }
   }
 
@@ -220,7 +229,7 @@ export function MatchCyclePanel({
         files: [file],
         title: "MoIja 라인업"
       });
-      showToast({ message: "공유 시트에서 이미지 저장을 선택해 주세요." });
+      showToast({ message: "라인업 이미지 공유를 열었습니다." });
       return;
     }
 
@@ -268,21 +277,21 @@ export function MatchCyclePanel({
 
       {canManageLineup && activeSection === "lineup" ? (
         <section className="mt-4 grid gap-4">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <select
+            className="field-input bg-white"
+            value={formation}
+            onChange={(event) => {
+              const nextFormation = getFormationPreset(event.target.value).code;
+              setFormation(nextFormation);
+              setLineupSlots(buildDefaultLineupState(nextFormation, playablePlayers));
+            }}
+          >
             {FORMATION_PRESETS.map((presetOption) => (
-              <button
-                className={`h-10 min-w-0 rounded-lg px-2 text-sm font-bold ${formation === presetOption.code ? "bg-primary text-white" : "bg-surfaceAlt text-secondary"}`}
-                key={presetOption.code}
-                onClick={() => {
-                  setFormation(presetOption.code);
-                  setLineupSlots(buildDefaultLineupState(presetOption.code, playablePlayers));
-                }}
-                type="button"
-              >
+              <option key={presetOption.code} value={presetOption.code}>
                 {presetOption.label}
-              </button>
+              </option>
             ))}
-          </div>
+          </select>
           <input className="field-input" value={boardNote} onChange={(event) => setBoardNote(event.target.value)} placeholder="작전 메모" />
           <div ref={boardRef} className="relative aspect-[4/3] w-full max-w-full touch-none overflow-hidden rounded-xl bg-[#166534] text-white">
             <div className="absolute inset-4 rounded-lg border-2 border-white/55" />
@@ -336,8 +345,8 @@ export function MatchCyclePanel({
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-2 text-sm font-bold text-white sm:gap-2 sm:px-4" onClick={() => lineupMutation.mutate()} type="button"><Save size={16} /> 저장</button>
-            <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-surfaceAlt px-2 text-sm font-bold text-secondary sm:gap-2 sm:px-4" onClick={saveBoardImageToPhotos} type="button"><Download size={16} /> 라인업 복사</button>
-            <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-surfaceAlt px-2 text-sm font-bold text-secondary sm:gap-2 sm:px-4" onClick={downloadBoardImage} type="button"><Download size={16} /> 이미지</button>
+            <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-surfaceAlt px-2 text-sm font-bold text-secondary sm:gap-2 sm:px-4" onClick={saveBoardImageToPhotos} type="button"><Share2 size={16} /> 라인업 공유</button>
+            {/* <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-surfaceAlt px-2 text-sm font-bold text-secondary sm:gap-2 sm:px-4" onClick={downloadBoardImage} type="button"><Download size={16} /> 이미지</button> */}
           </div>
         </section>
       ) : null}
@@ -346,42 +355,21 @@ export function MatchCyclePanel({
         <section className="mt-4 grid gap-4 rounded-xl border border-line bg-surfaceAlt p-4">
           <div className="flex items-center justify-between gap-3">
             <h3 className="flex items-center gap-2 font-bold"><UserPlus size={18} /> 용병 초대</h3>
-            <button className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-3 text-xs font-bold text-white" onClick={() => inviteMutation.mutate()} type="button">
-              <Plus size={15} /> 초대코드
-            </button>
           </div>
-          <form
-            className="flex gap-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const form = event.currentTarget;
-              const value = String(new FormData(form).get("displayName") ?? "").trim();
-              if (value) {
-                addGuestMutation.mutate(value);
-                form.reset();
-              }
-            }}
-          >
-            <input className="field-input h-11 bg-white" name="displayName" placeholder="용병 이름" />
-            <button className="inline-flex h-11 shrink-0 items-center rounded-lg bg-strategy px-3 text-xs font-bold text-white" type="submit">추가</button>
-          </form>
           <div className="grid gap-2">
-            {invites.map((invite) => (
+            {initialInvites.length === 0 ? (
+              <div className="rounded-lg bg-white px-3 py-3 text-sm font-bold text-muted">초대코드 준비 중</div>
+            ) : null}
+            {initialInvites.map((invite) => (
               <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-sm font-bold" key={invite.id}>
-                <span>{invite.code}</span>
+                <span className="select-all">{invite.code}</span>
                 <button
                   className="text-secondary"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(invite.code);
-                      showToast({ message: "초대 코드를 복사했습니다." });
-                    } catch {
-                      showToast({ message: "초대 코드 복사에 실패했습니다.", tone: "error" });
-                    }
-                  }}
+                  onClick={() => void shareInviteCode(invite.code)}
+                  title="초대코드 공유"
                   type="button"
                 >
-                  <Clipboard size={16} />
+                  <Share2 size={16} />
                 </button>
               </div>
             ))}
@@ -421,13 +409,91 @@ export function MatchCyclePanel({
               <option value="draw">무</option>
               <option value="loss">패</option>
             </select>
-            <input className="field-input" name="goalsFor" type="number" min="0" defaultValue={initialRecord?.goalsFor ?? 0} />
-            <input className="field-input" name="goalsAgainst" type="number" min="0" defaultValue={initialRecord?.goalsAgainst ?? 0} />
+            <select className="field-input" name="goalsFor" defaultValue={initialRecord?.goalsFor ?? 0}>
+              {scoreOptions.map((score) => (
+                <option key={score} value={score}>우리 {score}</option>
+              ))}
+            </select>
+            <select className="field-input" name="goalsAgainst" defaultValue={initialRecord?.goalsAgainst ?? 0}>
+              {scoreOptions.map((score) => (
+                <option key={score} value={score}>상대 {score}</option>
+              ))}
+            </select>
           </div>
+          <section className="grid gap-2 rounded-xl bg-surfaceAlt p-3">
+            <div className="flex items-center justify-between gap-3">
+              <h4 className="text-sm font-bold">골 / 어시스트</h4>
+              <button
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={playablePlayers.length === 0}
+                onClick={openScoreModal}
+                type="button"
+              >
+                <Plus size={14} /> 골 추가
+              </button>
+            </div>
+            {scoringEvents.length === 0 ? (
+              <div className="rounded-lg bg-white px-3 py-3 text-sm font-bold text-muted">아직 골 기록이 없습니다.</div>
+            ) : null}
+            {scoringEvents.map((event, index) => {
+              const scorer = playerById.get(event.scorerId);
+              const assist = event.assistId ? playerById.get(event.assistId) : null;
+
+              return (
+                <div className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 text-sm font-bold" key={event.id}>
+                  <span className="min-w-0 truncate">
+                    {index + 1}골 · {scorer?.displayName ?? "득점자 미확인"}
+                    {assist ? ` / 도움 ${assist.displayName}` : " / 도움 없음"}
+                  </span>
+                  <button
+                    className="shrink-0 text-danger"
+                    onClick={() => setScoringEvents((current) => current.filter((item) => item.id !== event.id))}
+                    title="골 기록 삭제"
+                    type="button"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              );
+            })}
+          </section>
           <input className="field-input" name="opponentName" placeholder="상대팀" defaultValue={initialRecord?.opponentName ?? ""} />
           <textarea className="field-input min-h-24" name="memo" placeholder="경기 메모" defaultValue={initialRecord?.memo ?? ""} />
           <button className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-bold text-white" type="submit"><Save size={16} /> 경기 기록 저장</button>
         </form>
+      ) : null}
+
+      {isScoreModalOpen ? (
+        <div className="fixed inset-0 z-50 grid place-items-end bg-black/40 px-3 py-4 sm:place-items-center">
+          <div className="grid w-full max-w-md gap-4 rounded-2xl bg-white p-4 shadow-card">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-bold">골 기록 추가</h3>
+              <button className="grid size-9 place-items-center rounded-lg bg-surfaceAlt text-secondary" onClick={() => setIsScoreModalOpen(false)} type="button">
+                <X size={18} />
+              </button>
+            </div>
+            <label className="grid gap-1 text-sm font-bold">
+              득점자
+              <select className="field-input bg-white" value={selectedScorerId} onChange={(event) => setSelectedScorerId(event.target.value)}>
+                {playablePlayers.map((player) => (
+                  <option key={player.id} value={player.id}>{player.displayName}</option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm font-bold">
+              어시스트
+              <select className="field-input bg-white" value={selectedAssistId} onChange={(event) => setSelectedAssistId(event.target.value)}>
+                <option value="">없음</option>
+                {playablePlayers.map((player) => (
+                  <option disabled={player.id === selectedScorerId} key={player.id} value={player.id}>{player.displayName}</option>
+                ))}
+              </select>
+            </label>
+            <button className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-bold text-white" onClick={addScoringEvent} type="button">
+              <Save size={16} /> 저장
+            </button>
+          </div>
+        </div>
       ) : null}
     </article>
   );
@@ -452,16 +518,44 @@ function buildDefaultLineupState(formation: string, players: MatchCyclePlayer[])
   return getDefaultLineupSlots(formation, players);
 }
 
-function buildRecordPayload(players: MatchCyclePlayer[]) {
-  return players.map((player) => ({
-    playerKind: player.playerKind,
-    profileId: player.profileId,
-    guestId: player.guestId,
-    goals: 0,
-    assists: 0,
-    isMvp: false,
-    positionCode: player.positionCode,
-    lineupSlot: "starter"
+function buildRecordPayload(players: MatchCyclePlayer[], scoringEvents: ScoringEventState[]) {
+  return summarizeScoringEvents({
+    players: players.map((player) => ({
+      id: player.id,
+      playerKind: player.playerKind,
+      profileId: player.profileId,
+      guestId: player.guestId,
+      positionCode: player.positionCode
+    })),
+    events: scoringEvents.map((event) => ({
+      scorerId: event.scorerId,
+      assistId: event.assistId
+    }))
+  });
+}
+
+function buildInitialScoringEvents(players: MatchCyclePlayer[], records: PlayerRecordValue[]): ScoringEventState[] {
+  const playerIdByRecordKey = new Map(
+    players.map((player) => [
+      player.playerKind === "member" ? `member:${player.profileId}` : `guest:${player.guestId}`,
+      player.id
+    ])
+  );
+  const scorers = records.flatMap((record) => {
+    const key = record.profileId ? `member:${record.profileId}` : `guest:${record.guestId}`;
+    const playerId = playerIdByRecordKey.get(key);
+    return playerId ? Array.from({ length: record.goals }, () => playerId) : [];
+  });
+  const assists = records.flatMap((record) => {
+    const key = record.profileId ? `member:${record.profileId}` : `guest:${record.guestId}`;
+    const playerId = playerIdByRecordKey.get(key);
+    return playerId ? Array.from({ length: record.assists }, () => playerId) : [];
+  });
+
+  return scorers.map((scorerId, index) => ({
+    id: `initial:${index}`,
+    scorerId,
+    assistId: assists[index] && assists[index] !== scorerId ? assists[index] : null
   }));
 }
 

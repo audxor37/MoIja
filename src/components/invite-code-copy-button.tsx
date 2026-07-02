@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Share2 } from "lucide-react";
 import { useToast } from "@/components/toast-provider";
+import { buildInviteSharePayload } from "@/lib/match-cycle";
 
 type CopyState = "idle" | "copied" | "error";
 
@@ -20,28 +21,40 @@ export function InviteCodeCopyButton({ inviteCode }: { inviteCode: string | null
     return () => window.clearTimeout(timeoutId);
   }, [copyState]);
 
-  async function handleCopy() {
+  async function handleShare() {
     if (!inviteCode) {
       return;
     }
 
+    const payload = buildInviteSharePayload({
+      inviteCode,
+      siteUrl: window.location.origin
+    });
+
     try {
-      await navigator.clipboard.writeText(inviteCode);
+      if (navigator.share) {
+        await navigator.share(payload);
+        setCopyState("copied");
+        showToast({ message: "초대 공유를 열었습니다." });
+        return;
+      }
+
+      await navigator.clipboard.writeText(`${payload.text}\n${payload.url}`);
       setCopyState("copied");
-      showToast({ message: "초대 코드를 복사했습니다." });
+      showToast({ message: "공유가 제한된 환경이라 초대 내용을 복사했습니다." });
     } catch {
       setCopyState("error");
-      showToast({ message: "초대 코드 복사에 실패했습니다.", tone: "error" });
+      showToast({ message: "초대 공유에 실패했습니다.", tone: "error" });
     }
   }
 
   const label =
     copyState === "copied"
-      ? "복사됨"
+      ? "공유됨"
       : copyState === "error"
-        ? "복사 실패"
+        ? "공유 실패"
         : inviteCode
-          ? `초대 코드 ${inviteCode}`
+          ? `초대 공유 ${inviteCode}`
           : "참가 링크";
 
   return (
@@ -49,11 +62,11 @@ export function InviteCodeCopyButton({ inviteCode }: { inviteCode: string | null
       aria-live="polite"
       className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#E8F3FF] px-4 text-sm font-semibold text-strategy transition hover:bg-[#DBEAFF] disabled:cursor-not-allowed disabled:opacity-60"
       disabled={!canCopy}
-      onClick={handleCopy}
+      onClick={handleShare}
       title={inviteCode ? `초대 코드: ${inviteCode}` : "초대 코드가 아직 없습니다"}
       type="button"
     >
-      {copyState === "copied" ? <Check size={18} /> : <Copy size={18} />}
+      {copyState === "copied" ? <Check size={18} /> : <Share2 size={18} />}
       {label}
     </button>
   );

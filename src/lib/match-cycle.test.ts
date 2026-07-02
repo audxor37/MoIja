@@ -9,8 +9,10 @@ import {
   getDefaultLineupPlacements,
   getDefaultLineupSlots,
   getPositionLabel,
+  buildInviteSharePayload,
   getBoardImageSaveFallback,
   getBoardImageFileName,
+  summarizeScoringEvents,
   validateGuestOperatorStatus,
   validateGuestResponseStatus,
   validateMatchResult
@@ -151,4 +153,60 @@ test("builds safe Korean lineup image filenames from meeting titles", () => {
   assert.equal(getBoardImageFileName("목요 풋살"), "목요 풋살_라인업.png");
   assert.equal(getBoardImageFileName("강남/서초: 친선전?"), "강남_서초_ 친선전_라인업.png");
   assert.equal(getBoardImageFileName("  "), "moija-lineup_라인업.png");
+});
+
+test("builds invite share payload with code and join link", () => {
+  assert.deepEqual(buildInviteSharePayload({ inviteCode: "ABCD1234", siteUrl: "https://moija.app/" }), {
+    title: "MoIja 초대",
+    text: "MoIja 초대 코드: ABCD1234",
+    url: "https://moija.app/?invite=ABCD1234"
+  });
+});
+
+test("summarizes scoring events into player record totals", () => {
+  const records = summarizeScoringEvents({
+    players: [
+      { id: "member:1", playerKind: "member", profileId: "profile-1", guestId: null, positionCode: "ST" },
+      { id: "member:2", playerKind: "member", profileId: "profile-2", guestId: null, positionCode: "CM" },
+      { id: "guest:1", playerKind: "guest", profileId: null, guestId: "guest-1", positionCode: null }
+    ],
+    events: [
+      { scorerId: "member:1", assistId: "member:2" },
+      { scorerId: "member:1", assistId: null },
+      { scorerId: "guest:1", assistId: "member:2" }
+    ]
+  });
+
+  assert.deepEqual(records, [
+    {
+      playerKind: "member",
+      profileId: "profile-1",
+      guestId: null,
+      goals: 2,
+      assists: 0,
+      isMvp: false,
+      positionCode: "ST",
+      lineupSlot: "starter"
+    },
+    {
+      playerKind: "member",
+      profileId: "profile-2",
+      guestId: null,
+      goals: 0,
+      assists: 2,
+      isMvp: false,
+      positionCode: "CM",
+      lineupSlot: "starter"
+    },
+    {
+      playerKind: "guest",
+      profileId: null,
+      guestId: "guest-1",
+      goals: 1,
+      assists: 0,
+      isMvp: false,
+      positionCode: null,
+      lineupSlot: "starter"
+    }
+  ]);
 });

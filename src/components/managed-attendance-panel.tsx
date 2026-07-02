@@ -32,6 +32,7 @@ export function ManagedAttendancePanel({
   const queryClient = useQueryClient();
   const showToast = useToast();
   const [members, setMembers] = useState(initialMembers);
+  const [activeGroup, setActiveGroup] = useState<"unanswered" | "waitlisted" | "confirmation" | null>(null);
 
   const summary = useMemo(
     () =>
@@ -78,6 +79,26 @@ export function ManagedAttendancePanel({
     }
   });
 
+  const unansweredMembers = members.filter((member) => !member.attendance?.status);
+  const waitlistedMembers = members.filter((member) => member.attendance?.status === "waitlisted");
+  const confirmationCandidates = [...waitlistedMembers, ...unansweredMembers];
+  const activeMembers =
+    activeGroup === "unanswered"
+      ? unansweredMembers
+      : activeGroup === "waitlisted"
+        ? waitlistedMembers
+        : activeGroup === "confirmation"
+          ? confirmationCandidates
+          : [];
+  const activeTitle =
+    activeGroup === "unanswered"
+      ? "미응답"
+      : activeGroup === "waitlisted"
+        ? "대기"
+        : activeGroup === "confirmation"
+          ? "확정 필요"
+          : "";
+
   return (
     <article className="rounded-2xl bg-white p-4 shadow-card sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -87,52 +108,60 @@ export function ManagedAttendancePanel({
             정원까지 {summary.confirmationNeededCount}명 부족 · 미응답 {summary.unansweredCount}명 · 대기 {summary.waitlistedCount}명
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-2 text-sm font-bold sm:grid-cols-4">
-          <StatusPill label="응답률" value={`${summary.responseRate}%`} />
-          <StatusPill label="미응답" value={`${summary.unansweredCount}명`} />
-          <StatusPill label="대기" value={`${summary.waitlistedCount}명`} />
-          <StatusPill label="확정 필요" value={`${summary.confirmationNeededCount}명`} />
+        <div className="grid grid-cols-3 gap-2 text-sm font-bold">
+          <StatusCard label="미응답" value={`${summary.unansweredCount}명`} onClick={() => setActiveGroup("unanswered")} />
+          <StatusCard label="대기" value={`${summary.waitlistedCount}명`} onClick={() => setActiveGroup("waitlisted")} />
+          <StatusCard label="확정 필요" value={`${summary.confirmationNeededCount}명`} onClick={() => setActiveGroup("confirmation")} />
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 lg:grid-cols-2">
-        <AttendanceGroup title="미응답" status={null} members={members} meetingId={meetingId} mutation={mutation} />
-        <AttendanceGroup title="대기" status="waitlisted" members={members} meetingId={meetingId} mutation={mutation} />
-        <AttendanceGroup title="참석 예정" status="attending" members={members} meetingId={meetingId} mutation={mutation} />
-        <AttendanceGroup title="불참" status="absent" members={members} meetingId={meetingId} mutation={mutation} />
-        <AttendanceGroup title="노쇼" status="no_show" members={members} meetingId={meetingId} mutation={mutation} />
+      <div className="mt-4 rounded-xl bg-surfaceAlt px-3 py-2.5 text-xs font-bold text-secondary">
+        응답률 {summary.responseRate}% · 참석 예정 {summary.attendingCount}명 · 불참 {summary.absentCount}명
       </div>
+
+      {activeGroup ? (
+        <AttendanceModal
+          members={activeMembers}
+          meetingId={meetingId}
+          mutation={mutation}
+          onClose={() => setActiveGroup(null)}
+          title={activeTitle}
+        />
+      ) : null}
     </article>
   );
 }
 
-function AttendanceGroup({
+function AttendanceModal({
   title,
-  status,
   members,
   meetingId,
-  mutation
+  mutation,
+  onClose
 }: {
   title: string;
-  status: AttendanceStatus | null;
   members: ManagedAttendanceMember[];
   meetingId: string;
   mutation: ReturnType<typeof useMutation<Awaited<ReturnType<typeof performUpdateManagedAttendance>>, Error, { profileId: string; status: AttendanceStatus }>>;
+  onClose: () => void;
 }) {
-  const filteredMembers = members.filter((member) => (member.attendance?.status ?? null) === status);
-
   return (
-    <section className="rounded-xl border border-line bg-surfaceAlt p-3">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="font-bold">{title}</h3>
-        <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-secondary">{filteredMembers.length}명</span>
-      </div>
-      {filteredMembers.length === 0 ? (
-        <p className="mt-2 text-xs font-semibold text-muted">비어 있음</p>
-      ) : null}
-      <div className="mt-3 grid gap-2">
-        {filteredMembers.length > 0 ? (
-          filteredMembers.map((member) => (
+    <div className="fixed inset-0 z-50 flex items-end bg-black/45 px-3 py-4 sm:items-center sm:justify-center" role="dialog" aria-modal="true">
+      <section className="max-h-[82vh] w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-card">
+        <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+          <div>
+            <h3 className="font-bold">{title}</h3>
+            <p className="mt-0.5 text-xs font-semibold text-muted">{members.length}명</p>
+          </div>
+          <button className="h-9 rounded-lg bg-surfaceAlt px-3 text-xs font-bold text-secondary" onClick={onClose} type="button">
+            닫기
+          </button>
+        </div>
+        <div className="grid max-h-[64vh] gap-2 overflow-y-auto p-3">
+          {members.length === 0 ? (
+            <p className="rounded-xl bg-surfaceAlt px-3 py-4 text-sm font-semibold text-muted">대상자가 없습니다.</p>
+          ) : null}
+          {members.map((member) => (
             <div className="rounded-xl bg-white px-3 py-2.5" key={member.profileId}>
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
@@ -140,19 +169,19 @@ function AttendanceGroup({
                   <p className="mt-1 text-xs font-semibold text-muted">{member.role}</p>
                 </div>
                 <div className="flex shrink-0 gap-1.5">
-                  {status !== "attending" ? (
+                  {member.attendance?.status !== "attending" ? (
                     <AttendanceActionButton meetingId={meetingId} profileId={member.profileId} status="attending" label="확정" mutation={mutation} />
                   ) : null}
-                  {status !== "no_show" ? (
+                  {member.attendance?.status !== "no_show" ? (
                     <AttendanceActionButton meetingId={meetingId} profileId={member.profileId} status="no_show" label="노쇼" danger mutation={mutation} />
                   ) : null}
                 </div>
               </div>
             </div>
-          ))
-        ) : null}
-      </div>
-    </section>
+          ))}
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -186,11 +215,11 @@ function AttendanceActionButton({
   );
 }
 
-function StatusPill({ label, value }: { label: string; value: string }) {
+function StatusCard({ label, value, onClick }: { label: string; value: string; onClick: () => void }) {
   return (
-    <div className="flex min-w-0 items-center justify-between gap-2 rounded-xl bg-surfaceAlt px-3 py-2.5">
+    <button className="flex min-w-0 flex-col items-start rounded-xl bg-surfaceAlt px-3 py-2.5 text-left transition hover:bg-[#E8F7EE]" onClick={onClick} type="button">
       <span className="text-muted">{label}</span>
-      <span className="shrink-0 text-ink">{value}</span>
-    </div>
+      <span className="mt-1 shrink-0 text-ink">{value}</span>
+    </button>
   );
 }

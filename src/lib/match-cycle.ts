@@ -61,6 +61,32 @@ export type BoardImageSaveFallback = {
   primaryAction: "share" | "download" | "open";
   message: string;
 };
+export type InviteSharePayload = {
+  title: string;
+  text: string;
+  url: string;
+};
+export type ScoringPlayerInput = {
+  id: string;
+  playerKind: "member" | "guest";
+  profileId: string | null;
+  guestId: string | null;
+  positionCode: string | null;
+};
+export type ScoringEventInput = {
+  scorerId: string;
+  assistId: string | null;
+};
+export type PlayerRecordPayload = {
+  playerKind: "member" | "guest";
+  profileId: string | null;
+  guestId: string | null;
+  goals: number;
+  assists: number;
+  isMvp: boolean;
+  positionCode: string | null;
+  lineupSlot: string;
+};
 
 export const POSITION_LABELS: Record<string, string> = {
   GK: "골키퍼",
@@ -439,4 +465,60 @@ export function getBoardImageFileName(meetingTitle: string) {
     .replace(/^_+|_+$/g, "");
 
   return `${safeTitle || "moija-lineup"}_라인업.png`;
+}
+
+export function buildInviteSharePayload({
+  inviteCode,
+  siteUrl
+}: {
+  inviteCode: string;
+  siteUrl: string;
+}): InviteSharePayload {
+  const normalizedSiteUrl = siteUrl.replace(/\/+$/, "");
+  const encodedCode = encodeURIComponent(inviteCode);
+
+  return {
+    title: "MoIja 초대",
+    text: `MoIja 초대 코드: ${inviteCode}`,
+    url: `${normalizedSiteUrl}/?invite=${encodedCode}`
+  };
+}
+
+export function summarizeScoringEvents({
+  players,
+  events
+}: {
+  players: ScoringPlayerInput[];
+  events: ScoringEventInput[];
+}): PlayerRecordPayload[] {
+  const totals = new Map<string, { goals: number; assists: number }>();
+
+  for (const event of events) {
+    if (event.scorerId) {
+      const current = totals.get(event.scorerId) ?? { goals: 0, assists: 0 };
+      totals.set(event.scorerId, { ...current, goals: current.goals + 1 });
+    }
+
+    if (event.assistId) {
+      const current = totals.get(event.assistId) ?? { goals: 0, assists: 0 };
+      totals.set(event.assistId, { ...current, assists: current.assists + 1 });
+    }
+  }
+
+  return players
+    .map((player) => {
+      const total = totals.get(player.id) ?? { goals: 0, assists: 0 };
+
+      return {
+        playerKind: player.playerKind,
+        profileId: player.profileId,
+        guestId: player.guestId,
+        goals: total.goals,
+        assists: total.assists,
+        isMvp: false,
+        positionCode: player.positionCode,
+        lineupSlot: "starter"
+      };
+    })
+    .filter((record) => record.goals > 0 || record.assists > 0);
 }

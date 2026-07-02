@@ -30,6 +30,8 @@ type JoinTeamResult =
       message: string;
     };
 
+export type InviteJoinKind = "team" | "guest";
+
 export function normalizeInviteCode(value: string) {
   let rawValue = value.trim();
 
@@ -45,6 +47,18 @@ export function normalizeInviteCode(value: string) {
   }
 
   return rawValue.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+}
+
+export function mapGuestInviteRpcError(error: { code?: string; message?: string } | null) {
+  if (error?.code === "P0001" && error.message === "auth_required") {
+    return "auth";
+  }
+
+  return "join";
+}
+
+export function getInviteJoinSuccessMessage(kind: InviteJoinKind) {
+  return kind === "guest" ? "용병으로 경기 참석이 확정되었습니다." : "모임에 가입했습니다.";
 }
 
 export function validateOrganizerTeamInput(input: OrganizerTeamInput): OrganizerTeamResult {
