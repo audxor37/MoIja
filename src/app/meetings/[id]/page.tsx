@@ -16,23 +16,12 @@ import { canManageMeeting, formatMeetingDateTime } from "@/lib/meetings";
 import { getCurrentUserId } from "@/lib/supabase/auth-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-const attendanceMessages: Record<string, string> = {
-  auth_required: "로그인이 필요합니다. 다시 로그인해 주세요.",
-  invalid_status: "참석 응답 값을 다시 확인해 주세요.",
-  missing_meeting: "모임 정보를 찾지 못했습니다.",
-  permission_denied: "출석을 관리할 Owner 또는 Manager 권한이 필요합니다.",
-  save_failed: "참석 응답 저장에 실패했습니다. 잠시 후 다시 시도해 주세요."
-};
-
 export default async function MeetingDetailPage({
-  params,
-  searchParams
+  params
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ attendance_error?: string; attendance_message?: string }>;
 }) {
   const { id } = await params;
-  const query = await searchParams;
   const supabase = await createSupabaseServerClient();
   const userId = await getCurrentUserId(supabase);
 
@@ -159,9 +148,6 @@ export default async function MeetingDetailPage({
   ];
   const lineup = lineupResult.data as { formation: string; board_note: string | null } | null;
   const matchRecord = matchRecordResult.data as MatchRecordRow | null;
-  const message =
-    query?.attendance_message ||
-    (query?.attendance_error ? attendanceMessages[query.attendance_error] : null);
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-app text-ink">
@@ -181,12 +167,6 @@ export default async function MeetingDetailPage({
             <h1 className="mt-2 truncate text-2xl font-bold leading-8 sm:text-[30px] sm:leading-10">{currentMeeting.title}</h1>
           </div>
         </header>
-
-        {message ? (
-          <div className="mt-5 rounded-2xl border border-[#FBD6A3] bg-[#FFF7E8] px-5 py-4 text-sm font-semibold text-[#8A5200]">
-            {message}
-          </div>
-        ) : null}
 
         <section className="grid min-w-0 gap-5 py-5 lg:py-7">
           <section className="grid min-w-0 gap-4">
@@ -249,6 +229,7 @@ export default async function MeetingDetailPage({
                     : null
                 }
                 meetingId={currentMeeting.id}
+                meetingTitle={currentMeeting.title}
               />
             ) : null}
           </section>

@@ -35,32 +35,6 @@ const navItems = [
   { label: "팀 관리", icon: Users, href: "/team" }
 ];
 
-const authMessages: Record<string, string> = {
-  callback_failed: "카카오 로그인 처리 중 문제가 발생했습니다. Supabase와 Kakao 설정을 확인해 주세요.",
-  kakao_start_failed: "카카오 로그인 주소를 만들지 못했습니다. Kakao provider 설정을 확인해 주세요.",
-  missing_code: "로그인 인증 코드가 전달되지 않았습니다. 다시 시도해 주세요.",
-  profile_failed: "로그인은 완료됐지만 프로필 저장에 실패했습니다. profiles RLS와 스키마를 확인해 주세요.",
-  user_missing: "로그인 세션을 확인하지 못했습니다. 다시 시도해 주세요.",
-  supabase_env_missing: "Supabase 환경 변수가 아직 설정되지 않았습니다. .env.local을 먼저 준비해 주세요."
-};
-
-const onboardingErrors: Record<string, string> = {
-  auth_required: "로그인 세션을 확인하지 못했습니다. 다시 로그인해 주세요.",
-  join_failed: "초대 코드를 찾지 못했습니다. 운영자에게 받은 코드를 다시 확인해 주세요.",
-  owner_member_failed: "팀은 생성됐지만 운영자 권한 연결에 실패했습니다. team_members RLS를 확인해 주세요.",
-  profile_failed: "프로필 저장에 실패했습니다. profiles RLS와 스키마를 확인해 주세요.",
-  team_create_failed: "팀 생성에 실패했습니다. teams 스키마와 RLS를 확인해 주세요."
-};
-
-const meetingMessages: Record<string, string> = {
-  auth_required: "로그인이 필요합니다. 다시 로그인해 주세요.",
-  permission_denied: "모임을 관리할 Owner 또는 Manager 권한이 필요합니다.",
-  create_failed: "모임 저장에 실패했습니다. Supabase 마이그레이션 적용 여부를 확인해 주세요.",
-  update_failed: "모임 수정에 실패했습니다.",
-  delete_failed: "모임 삭제에 실패했습니다.",
-  missing_meeting: "모임 정보를 찾지 못했습니다."
-};
-
 const bottomNav = [
   { label: "홈", icon: Grid2X2, active: true },
   { label: "경기", icon: CalendarPlus },
@@ -69,30 +43,14 @@ const bottomNav = [
   { label: "내 정보", icon: ShieldCheck }
 ];
 
-export default async function Home({
-  searchParams
-}: {
-  searchParams?: Promise<{
-    auth_error?: string;
-    onboarding_error?: string;
-    onboarding_message?: string;
-    meeting_error?: string;
-    meeting_message?: string;
-  }>;
-}) {
-  const params = await searchParams;
-  const authMessage = params?.auth_error ? authMessages[params.auth_error] : null;
-  const onboardingError = params?.onboarding_error ? onboardingErrors[params.onboarding_error] : null;
-  const meetingError = params?.meeting_error ? meetingMessages[params.meeting_error] : null;
-  const onboardingMessage = params?.onboarding_message ?? null;
-  const meetingMessage = params?.meeting_message ?? null;
+export default async function Home() {
   const session = await getDashboardSession();
 
   if (!session.nickname) {
     return (
       <>
         <DashboardCacheHydrator initialData={session} />
-        <PublicHome authMessage={authMessage} />
+        <PublicHome />
       </>
     );
   }
@@ -101,30 +59,25 @@ export default async function Home({
     return (
       <>
         <DashboardCacheHydrator initialData={session} />
-        <OnboardingStart
-          message={authMessage || onboardingError || onboardingMessage}
-          nickname={session.nickname}
-        />
+        <OnboardingStart nickname={session.nickname} />
       </>
     );
   }
 
-  const message = authMessage || meetingError || meetingMessage;
-
   return canManageTeamRole(session.team.role) ? (
     <>
       <DashboardCacheHydrator initialData={session} />
-      <OperatorDashboard message={message} nickname={session.nickname} team={session.team} />
+      <OperatorDashboard nickname={session.nickname} team={session.team} />
     </>
   ) : (
     <>
       <DashboardCacheHydrator initialData={session} />
-      <MemberDashboard message={message} nickname={session.nickname} team={session.team} />
+      <MemberDashboard nickname={session.nickname} team={session.team} />
     </>
   );
 }
 
-function PublicHome({ authMessage }: { authMessage: string | null }) {
+function PublicHome() {
   return (
     <main className="min-h-screen bg-app text-ink">
       <header className="border-b border-line bg-white/95 px-4 py-4 backdrop-blur sm:px-6">
@@ -152,12 +105,6 @@ function PublicHome({ authMessage }: { authMessage: string | null }) {
             초대받은 모임의 참석 여부, 대기 상태, 리마인드, 내 기록을 로그인 후 바로 확인할 수 있습니다.
           </p>
 
-          {authMessage ? (
-            <Notice tone="warning" className="mt-5">
-              {authMessage}
-            </Notice>
-          ) : null}
-
           <div className="mt-6 grid gap-3">
             <Link
               className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#FEE500] px-5 text-base font-black text-[#191600] shadow-sm transition hover:brightness-95"
@@ -180,7 +127,7 @@ function PublicHome({ authMessage }: { authMessage: string | null }) {
   );
 }
 
-function OnboardingStart({ message, nickname }: { message: string | null; nickname: string }) {
+function OnboardingStart({ nickname }: { nickname: string }) {
   return (
     <main className="min-h-screen bg-app text-ink">
       <header className="border-b border-line bg-white/95 px-4 py-4 backdrop-blur sm:px-6">
@@ -201,12 +148,6 @@ function OnboardingStart({ message, nickname }: { message: string | null; nickna
           <p className="mt-4 max-w-xl text-base font-semibold leading-8 text-secondary">
             계정은 아직 운영자나 참석자로 나뉘지 않았습니다. 팀마다 역할을 다르게 가질 수 있도록 첫 행동만 선택합니다.
           </p>
-
-          {message ? (
-            <Notice tone="warning" className="mt-5">
-              {message}
-            </Notice>
-          ) : null}
         </div>
 
         <div className="grid gap-5">
@@ -287,11 +228,9 @@ function OnboardingStart({ message, nickname }: { message: string | null; nickna
 }
 
 function OperatorDashboard({
-  message,
   nickname,
   team
 }: {
-  message: string | null;
   nickname: string;
   team: TeamSession;
 }) {
@@ -339,12 +278,6 @@ function OperatorDashboard({
           </header>
 
           <section className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-            {message ? (
-              <Notice tone="warning" className="mb-6">
-                {message}
-              </Notice>
-            ) : null}
-
             <section className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <span className="inline-flex h-7 items-center rounded-full bg-[#E8F3FF] px-3 text-xs font-bold text-strategy">
@@ -446,11 +379,9 @@ function OperatorDashboard({
 }
 
 function MemberDashboard({
-  message,
   nickname,
   team
 }: {
-  message: string | null;
   nickname: string;
   team: TeamSession;
 }) {
@@ -474,13 +405,6 @@ function MemberDashboard({
           <p className="mt-3 text-sm font-semibold leading-6 text-secondary">
             참석 신청과 현재 상태를 먼저 확인합니다. 운영 확정과 노쇼 처리는 운영자가 관리합니다.
           </p>
-
-          {message ? (
-            <Notice tone="warning" className="mt-5">
-              {message}
-            </Notice>
-          ) : null}
-
           {nextMeeting ? (
             <article className="mt-6 rounded-2xl border border-primary bg-[#F8FEFA] p-5">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -585,21 +509,6 @@ function AuthActions({ nickname }: { nickname: string }) {
           로그아웃
         </button>
       </form>
-    </div>
-  );
-}
-
-function Notice({
-  children,
-  className = ""
-}: {
-  children: React.ReactNode;
-  tone: "warning";
-  className?: string;
-}) {
-  return (
-    <div className={`rounded-2xl border border-[#FBD6A3] bg-[#FFF7E8] px-5 py-4 text-sm font-semibold text-[#8A5200] ${className}`}>
-      {children}
     </div>
   );
 }

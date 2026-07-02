@@ -11,8 +11,6 @@ export default async function PasswordAuthPage({
 }) {
   const params = await searchParams;
   const mode: PasswordAuthMode = params?.mode === "sign-up" ? "sign-up" : "sign-in";
-  const error = params?.error ? decodeURIComponent(params.error) : null;
-  const message = params?.message ? decodeURIComponent(params.message) : null;
   const isSignUp = mode === "sign-up";
 
   return (
@@ -55,18 +53,6 @@ export default async function PasswordAuthPage({
             회원가입
           </Link>
         </div>
-
-        {error ? (
-          <div className="mt-5 rounded-2xl border border-[#FBD6A3] bg-[#FFF7E8] px-5 py-4 text-sm font-semibold text-[#8A5200]">
-            {error}
-          </div>
-        ) : null}
-
-        {message ? (
-          <div className="mt-5 rounded-2xl border border-[#B7E2C7] bg-[#E8F7EE] px-5 py-4 text-sm font-semibold text-primary">
-            {message}
-          </div>
-        ) : null}
 
         {isSignUp ? <SignUpForm /> : <SignInForm />}
 

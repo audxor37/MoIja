@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { Check, Copy } from "lucide-react";
+import { useToast } from "@/components/toast-provider";
 
 type CopyState = "idle" | "copied" | "error";
 
 export function InviteCodeCopyButton({ inviteCode }: { inviteCode: string | null }) {
+  const showToast = useToast();
   const [copyState, setCopyState] = useState<CopyState>("idle");
   const canCopy = Boolean(inviteCode);
 
@@ -26,8 +28,10 @@ export function InviteCodeCopyButton({ inviteCode }: { inviteCode: string | null
     try {
       await navigator.clipboard.writeText(inviteCode);
       setCopyState("copied");
+      showToast({ message: "초대 코드를 복사했습니다." });
     } catch {
       setCopyState("error");
+      showToast({ message: "초대 코드 복사에 실패했습니다.", tone: "error" });
     }
   }
 
