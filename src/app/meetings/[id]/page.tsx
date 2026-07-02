@@ -11,10 +11,7 @@ import {
 import { AttendanceResponsePanel } from "@/components/attendance-response-panel";
 import { MatchCyclePanel, type MatchCyclePlayer } from "@/components/match-cycle-panel";
 import { ManagedAttendancePanel, type ManagedAttendanceMember } from "@/components/managed-attendance-panel";
-import {
-  attendanceStatusLabel,
-  type AttendanceStatus
-} from "@/lib/attendance";
+import { type AttendanceStatus } from "@/lib/attendance";
 import { canManageMeeting, formatMeetingDateTime } from "@/lib/meetings";
 import { getCurrentUserId } from "@/lib/supabase/auth-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -167,8 +164,8 @@ export default async function MeetingDetailPage({
     (query?.attendance_error ? attendanceMessages[query.attendance_error] : null);
 
   return (
-    <main className="min-h-screen bg-app text-ink">
-      <div className="mx-auto flex w-full max-w-5xl flex-col px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
+    <main className="min-h-screen overflow-x-hidden bg-app text-ink">
+      <div className="mx-auto flex w-full max-w-5xl max-w-full flex-col overflow-x-hidden px-4 py-4 sm:px-6 lg:px-8 lg:py-7">
         <header className="flex items-center gap-3 border-b border-line pb-6">
           <Link
             aria-label="대시보드로 돌아가기"
@@ -177,11 +174,11 @@ export default async function MeetingDetailPage({
           >
             <ArrowLeft size={20} />
           </Link>
-          <div>
+          <div className="min-w-0">
             <span className="inline-flex h-7 items-center rounded-full bg-[#E8F7EE] px-3 text-xs font-bold text-primary">
               모임 상세
             </span>
-            <h1 className="mt-2 text-[30px] font-bold leading-10">{currentMeeting.title}</h1>
+            <h1 className="mt-2 truncate text-2xl font-bold leading-8 sm:text-[30px] sm:leading-10">{currentMeeting.title}</h1>
           </div>
         </header>
 
@@ -191,19 +188,19 @@ export default async function MeetingDetailPage({
           </div>
         ) : null}
 
-        <section className="grid gap-6 py-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:py-8">
-          <section className="grid gap-5">
-            <article className="rounded-2xl bg-white p-5 shadow-card sm:p-6">
+        <section className="grid min-w-0 gap-5 py-5 lg:py-7">
+          <section className="grid min-w-0 gap-4">
+            <article className="rounded-2xl bg-white p-4 shadow-card sm:p-5">
               <div className="flex items-start gap-3">
-                <CalendarClock className="mt-1 shrink-0 text-strategy" size={22} />
-                <div>
-                  <h2 className="text-xl font-bold">모임 정보</h2>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-secondary">
+                <CalendarClock className="mt-0.5 shrink-0 text-strategy" size={20} />
+                <div className="min-w-0">
+                  <h2 className="text-lg font-bold">모임 정보</h2>
+                  <p className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-secondary">
                     {currentMeeting.memo || "운영 메모가 아직 없습니다."}
                   </p>
                 </div>
               </div>
-              <div className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
+              <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
                 <InfoRow icon={Timer} label="일정" value={formatMeetingDateTime(currentMeeting.starts_at)} />
                 <InfoRow icon={MapPin} label="장소" value={currentMeeting.location_note ?? "장소 미정"} />
                 <InfoRow icon={Users} label="정원" value={currentMeeting.capacity ? `${currentMeeting.capacity}명` : "미정"} />
@@ -255,24 +252,6 @@ export default async function MeetingDetailPage({
               />
             ) : null}
           </section>
-
-          <aside className="grid gap-5 self-start">
-            <section className="rounded-2xl bg-navy p-5 text-white shadow-card">
-              <p className="text-xs font-semibold uppercase text-white/55">Attendance</p>
-              <h2 className="mt-3 text-2xl font-bold">{attendanceStatusLabel(myAttendance?.status)}</h2>
-              <p className="mt-3 text-sm leading-6 text-white/70">
-                참석 의사 변경은 이력으로 남고, 이후 운영자가 실제 출석을 확정할 수 있습니다.
-              </p>
-            </section>
-
-            <section className="rounded-2xl bg-white p-5 shadow-card">
-              <h2 className="text-lg font-bold">운영 규칙</h2>
-              <div className="mt-4 grid gap-3 text-sm font-semibold text-secondary">
-                <StatusPill label="대기" value={currentMeeting.allow_waitlist ? "허용" : "허용 안 함"} />
-                <StatusPill label="출석 방식" value={attendanceMethodLabel(currentMeeting.attendance_method)} />
-              </div>
-            </section>
-          </aside>
         </section>
       </div>
     </main>
@@ -340,32 +319,12 @@ function InfoRow({
   value: string;
 }) {
   return (
-    <div className="rounded-xl bg-surfaceAlt px-4 py-3">
+    <div className="min-w-0 rounded-xl bg-surfaceAlt px-3 py-2.5">
       <div className="flex items-center gap-2 text-xs font-bold text-muted">
-        <Icon size={15} />
+        <Icon className="shrink-0" size={15} />
         {label}
       </div>
-      <p className="mt-2 font-bold text-ink">{value}</p>
+      <p className="mt-1 truncate font-bold text-ink">{value}</p>
     </div>
   );
-}
-
-function StatusPill({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-xl bg-surfaceAlt px-3 py-3">
-      <span className="text-muted">{label}</span>
-      <span className="text-ink">{value}</span>
-    </div>
-  );
-}
-
-function attendanceMethodLabel(value: string) {
-  const labels: Record<string, string> = {
-    manual: "운영자 확인",
-    qr: "QR 체크",
-    gps: "GPS",
-    gps_approval: "GPS + 승인"
-  };
-
-  return labels[value] ?? "운영자 확인";
 }

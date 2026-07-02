@@ -81,12 +81,12 @@ export function ManagedAttendancePanel({
   });
 
   return (
-    <article className="rounded-2xl bg-white p-5 shadow-card sm:p-6">
+    <article className="rounded-2xl bg-white p-4 shadow-card sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-xl font-bold">운영자 출석 관리</h2>
-          <p className="mt-2 text-sm font-semibold leading-6 text-secondary">
-            참석 신청과 실제 출석 처리를 분리해 관리합니다.
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold">출석 운영</h2>
+          <p className="mt-1 text-sm font-semibold leading-5 text-secondary">
+            정원까지 {summary.confirmationNeededCount}명 부족 · 미응답 {summary.unansweredCount}명 · 대기 {summary.waitlistedCount}명
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2 text-sm font-bold sm:grid-cols-4">
@@ -99,7 +99,7 @@ export function ManagedAttendancePanel({
 
       {message ? (
         <div
-          className={`mt-5 rounded-2xl border px-5 py-4 text-sm font-semibold ${
+          className={`mt-4 rounded-xl border px-4 py-3 text-sm font-semibold ${
             messageTone === "success"
               ? "border-[#BEE7C8] bg-[#F0FBF3] text-primary"
               : "border-[#FBD6A3] bg-[#FFF7E8] text-[#8A5200]"
@@ -109,11 +109,11 @@ export function ManagedAttendancePanel({
         </div>
       ) : null}
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
-        <AttendanceGroup title="참석 예정" status="attending" members={members} meetingId={meetingId} mutation={mutation} />
-        <AttendanceGroup title="대기" status="waitlisted" members={members} meetingId={meetingId} mutation={mutation} />
-        <AttendanceGroup title="불참" status="absent" members={members} meetingId={meetingId} mutation={mutation} />
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
         <AttendanceGroup title="미응답" status={null} members={members} meetingId={meetingId} mutation={mutation} />
+        <AttendanceGroup title="대기" status="waitlisted" members={members} meetingId={meetingId} mutation={mutation} />
+        <AttendanceGroup title="참석 예정" status="attending" members={members} meetingId={meetingId} mutation={mutation} />
+        <AttendanceGroup title="불참" status="absent" members={members} meetingId={meetingId} mutation={mutation} />
         <AttendanceGroup title="노쇼" status="no_show" members={members} meetingId={meetingId} mutation={mutation} />
       </div>
     </article>
@@ -136,21 +136,24 @@ function AttendanceGroup({
   const filteredMembers = members.filter((member) => (member.attendance?.status ?? null) === status);
 
   return (
-    <section className="rounded-xl border border-line bg-surfaceAlt p-4">
+    <section className="rounded-xl border border-line bg-surfaceAlt p-3">
       <div className="flex items-center justify-between gap-3">
         <h3 className="font-bold">{title}</h3>
         <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-secondary">{filteredMembers.length}명</span>
       </div>
+      {filteredMembers.length === 0 ? (
+        <p className="mt-2 text-xs font-semibold text-muted">비어 있음</p>
+      ) : null}
       <div className="mt-3 grid gap-2">
         {filteredMembers.length > 0 ? (
           filteredMembers.map((member) => (
-            <div className="rounded-xl bg-white px-3 py-3" key={member.profileId}>
+            <div className="rounded-xl bg-white px-3 py-2.5" key={member.profileId}>
               <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="font-bold">{member.nickname}</p>
+                <div className="min-w-0">
+                  <p className="truncate font-bold">{member.nickname}</p>
                   <p className="mt-1 text-xs font-semibold text-muted">{member.role}</p>
                 </div>
-                <div className="flex shrink-0 gap-2">
+                <div className="flex shrink-0 gap-1.5">
                   {status !== "attending" ? (
                     <AttendanceActionButton meetingId={meetingId} profileId={member.profileId} status="attending" label="확정" mutation={mutation} />
                   ) : null}
@@ -161,9 +164,7 @@ function AttendanceGroup({
               </div>
             </div>
           ))
-        ) : (
-          <p className="rounded-xl bg-white px-3 py-4 text-sm font-semibold text-muted">해당 멤버가 없습니다.</p>
-        )}
+        ) : null}
       </div>
     </section>
   );
@@ -187,7 +188,7 @@ function AttendanceActionButton({
 
   return (
     <button
-      className={`h-9 rounded-lg px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+      className={`h-8 rounded-lg px-2.5 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 sm:h-9 sm:px-3 ${
         danger ? "border border-[#FFD7D7] bg-white text-danger hover:bg-[#FFF1F1]" : "bg-primary text-white hover:bg-[#12843D]"
       }`}
       disabled={mutation.isPending}
@@ -201,9 +202,9 @@ function AttendanceActionButton({
 
 function StatusPill({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl bg-surfaceAlt px-3 py-3">
+    <div className="flex min-w-0 items-center justify-between gap-2 rounded-xl bg-surfaceAlt px-3 py-2.5">
       <span className="text-muted">{label}</span>
-      <span className="text-ink">{value}</span>
+      <span className="shrink-0 text-ink">{value}</span>
     </div>
   );
 }
