@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { performUpdateManagedAttendance } from "@/app/meetings/actions";
 import { buildAttendanceSummary, type AttendanceStatus } from "@/lib/attendance";
 import { queryKeys } from "@/lib/query-keys";
+import { useToast } from "@/components/toast-provider";
 
 export type ManagedAttendanceMember = {
   profileId: string;
@@ -29,9 +30,8 @@ export function ManagedAttendancePanel({
   initialMembers: ManagedAttendanceMember[];
 }) {
   const queryClient = useQueryClient();
+  const showToast = useToast();
   const [members, setMembers] = useState(initialMembers);
-  const [message, setMessage] = useState<string | null>(null);
-  const [messageTone, setMessageTone] = useState<"success" | "error">("success");
 
   const summary = useMemo(
     () =>
@@ -51,8 +51,7 @@ export function ManagedAttendancePanel({
       return performUpdateManagedAttendance(formData);
     },
     onSuccess: (result) => {
-      setMessage(result.message);
-      setMessageTone(result.ok ? "success" : "error");
+      showToast({ message: result.message, tone: result.ok ? "success" : "error" });
 
       if (result.ok) {
         setMembers((current) =>
@@ -75,8 +74,7 @@ export function ManagedAttendancePanel({
       }
     },
     onError: () => {
-      setMessage("출석 상태 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
-      setMessageTone("error");
+      showToast({ message: "출석 상태 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.", tone: "error" });
     }
   });
 
@@ -96,18 +94,6 @@ export function ManagedAttendancePanel({
           <StatusPill label="확정 필요" value={`${summary.confirmationNeededCount}명`} />
         </div>
       </div>
-
-      {message ? (
-        <div
-          className={`mt-4 rounded-xl border px-4 py-3 text-sm font-semibold ${
-            messageTone === "success"
-              ? "border-[#BEE7C8] bg-[#F0FBF3] text-primary"
-              : "border-[#FBD6A3] bg-[#FFF7E8] text-[#8A5200]"
-          }`}
-        >
-          {message}
-        </div>
-      ) : null}
 
       <div className="mt-4 grid gap-3 lg:grid-cols-2">
         <AttendanceGroup title="미응답" status={null} members={members} meetingId={meetingId} mutation={mutation} />

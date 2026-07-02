@@ -5,25 +5,7 @@ import { canManageTeamRole } from "@/lib/team-management";
 import { getCurrentUserId } from "@/lib/supabase/auth-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-const teamMessages: Record<string, string> = {
-  role_updated: "역할을 변경했습니다.",
-  invite_regenerated: "초대 코드를 재발급했습니다."
-};
-
-const teamErrors: Record<string, string> = {
-  auth: "로그인이 필요합니다.",
-  invalid: "요청 값이 올바르지 않습니다.",
-  missing: "멤버를 찾지 못했습니다.",
-  permission: "팀을 관리할 Owner 또는 Manager 권한이 필요합니다.",
-  save: "변경 내용을 저장하지 못했습니다."
-};
-
-export default async function TeamPage({
-  searchParams
-}: {
-  searchParams?: Promise<{ team_message?: string; team_error?: string }>;
-}) {
-  const params = await searchParams;
+export default async function TeamPage() {
   const supabase = await createSupabaseServerClient();
   const userId = await getCurrentUserId(supabase);
 
@@ -64,9 +46,6 @@ export default async function TeamPage({
       nickname: profile?.nickname ?? "이름 없음"
     };
   });
-  const message = params?.team_message ? teamMessages[params.team_message] : null;
-  const error = params?.team_error ? teamErrors[params.team_error] : null;
-
   return (
     <main className="min-h-screen bg-app text-ink">
       <header className="border-b border-line bg-white px-4 py-4">
@@ -75,15 +54,6 @@ export default async function TeamPage({
           <Link className="rounded-xl bg-surfaceAlt px-4 py-2 text-sm font-bold text-secondary" href="/">홈</Link>
         </div>
       </header>
-
-      {(message || error) ? (
-        <section className="mx-auto max-w-6xl px-4 pt-6">
-          <div className="rounded-2xl border border-[#FBD6A3] bg-[#FFF7E8] px-5 py-4 text-sm font-semibold text-[#8A5200]">
-            {message || error}
-          </div>
-        </section>
-      ) : null}
-
       <TeamManagementPanel
         actorRole={typedMembership.role}
         currentUserId={userId}

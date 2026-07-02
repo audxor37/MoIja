@@ -429,3 +429,14 @@ export function getBoardImageSaveFallback({
     message: "복사가 제한된 환경입니다. 이미지 다운로드로 저장해 주세요."
   };
 }
+
+export function getBoardImageFileName(meetingTitle: string) {
+  const safeTitle = meetingTitle
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, "_")
+    .replace(/\s+/g, " ")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  return `${safeTitle || "moija-lineup"}_라인업.png`;
+}

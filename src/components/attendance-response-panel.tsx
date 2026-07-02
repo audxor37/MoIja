@@ -10,6 +10,7 @@ import {
   type AttendanceStatus
 } from "@/lib/attendance";
 import { queryKeys } from "@/lib/query-keys";
+import { useToast } from "@/components/toast-provider";
 
 const responseOptions = [
   {
@@ -42,9 +43,8 @@ export function AttendanceResponsePanel({
   initialStatus: AttendanceStatus | null;
 }) {
   const queryClient = useQueryClient();
+  const showToast = useToast();
   const [status, setStatus] = useState<AttendanceStatus | null>(initialStatus);
-  const [message, setMessage] = useState<string | null>(null);
-  const [messageTone, setMessageTone] = useState<"success" | "error">("success");
 
   const mutation = useMutation({
     mutationFn: async (nextStatus: AttendanceStatus) => {
@@ -54,8 +54,7 @@ export function AttendanceResponsePanel({
       return performRespondToMeetingAttendance(formData);
     },
     onSuccess: (result) => {
-      setMessage(result.message);
-      setMessageTone(result.ok ? "success" : "error");
+      showToast({ message: result.message, tone: result.ok ? "success" : "error" });
 
       if (result.ok) {
         setStatus(result.data.status);
@@ -64,8 +63,7 @@ export function AttendanceResponsePanel({
       }
     },
     onError: () => {
-      setMessage("참석 응답 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
-      setMessageTone("error");
+      showToast({ message: "참석 응답 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.", tone: "error" });
     }
   });
 
@@ -85,18 +83,6 @@ export function AttendanceResponsePanel({
         </div>
         <CheckCircle2 className="shrink-0 text-primary" size={22} />
       </div>
-
-      {message ? (
-        <div
-          className={`mt-4 rounded-xl border px-4 py-3 text-sm font-semibold ${
-            messageTone === "success"
-              ? "border-[#BEE7C8] bg-[#F0FBF3] text-primary"
-              : "border-[#FBD6A3] bg-[#FFF7E8] text-[#8A5200]"
-          }`}
-        >
-          {message}
-        </div>
-      ) : null}
 
       <div className="mt-4 grid grid-cols-3 gap-2">
         {responseOptions.map((option) => {

@@ -5,6 +5,7 @@ import { RefreshCcw, Users } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { performRegenerateTeamInviteCode, performUpdateTeamMemberRole } from "@/app/team/actions";
 import { InviteCodeCopyButton } from "@/components/invite-code-copy-button";
+import { useToast } from "@/components/toast-provider";
 import { queryKeys } from "@/lib/query-keys";
 import { canAssignTeamRole, TEAM_ROLES, teamRoleLabel } from "@/lib/team-management";
 
@@ -28,10 +29,9 @@ export function TeamManagementPanel({
   initialMembers: TeamManagementMember[];
 }) {
   const queryClient = useQueryClient();
+  const showToast = useToast();
   const [inviteCode, setInviteCode] = useState(team.inviteCode);
   const [members, setMembers] = useState(initialMembers);
-  const [message, setMessage] = useState<string | null>(null);
-  const [messageTone, setMessageTone] = useState<"success" | "error">("success");
 
   const inviteMutation = useMutation({
     mutationFn: async () => {
@@ -40,8 +40,7 @@ export function TeamManagementPanel({
       return performRegenerateTeamInviteCode(formData);
     },
     onSuccess: (result) => {
-      setMessage(result.message);
-      setMessageTone(result.ok ? "success" : "error");
+      showToast({ message: result.message, tone: result.ok ? "success" : "error" });
 
       if (result.ok) {
         setInviteCode(result.data.inviteCode);
@@ -50,8 +49,7 @@ export function TeamManagementPanel({
       }
     },
     onError: () => {
-      setMessage("변경 내용을 저장하지 못했습니다.");
-      setMessageTone("error");
+      showToast({ message: "변경 내용을 저장하지 못했습니다.", tone: "error" });
     }
   });
 
@@ -63,8 +61,7 @@ export function TeamManagementPanel({
       return performUpdateTeamMemberRole(formData);
     },
     onSuccess: (result) => {
-      setMessage(result.message);
-      setMessageTone(result.ok ? "success" : "error");
+      showToast({ message: result.message, tone: result.ok ? "success" : "error" });
 
       if (result.ok) {
         setMembers((current) =>
@@ -74,8 +71,7 @@ export function TeamManagementPanel({
       }
     },
     onError: () => {
-      setMessage("변경 내용을 저장하지 못했습니다.");
-      setMessageTone("error");
+      showToast({ message: "변경 내용을 저장하지 못했습니다.", tone: "error" });
     }
   });
 
@@ -105,18 +101,6 @@ export function TeamManagementPanel({
             </button>
           </div>
         </section>
-
-        {message ? (
-          <div
-            className={`rounded-2xl border px-5 py-4 text-sm font-semibold ${
-              messageTone === "success"
-                ? "border-[#BEE7C8] bg-[#F0FBF3] text-primary"
-                : "border-[#FBD6A3] bg-[#FFF7E8] text-[#8A5200]"
-            }`}
-          >
-            {message}
-          </div>
-        ) : null}
       </aside>
 
       <section className="rounded-2xl bg-white p-5 shadow-card">

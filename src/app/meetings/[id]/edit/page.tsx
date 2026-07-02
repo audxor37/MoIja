@@ -6,22 +6,12 @@ import { canManageMeeting } from "@/lib/meetings";
 import { getCurrentUserId } from "@/lib/supabase/auth-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-const messageMap: Record<string, string> = {
-  auth_required: "로그인이 필요합니다. 다시 로그인해 주세요.",
-  permission_denied: "모임을 수정할 Owner 또는 Manager 권한이 필요합니다.",
-  update_failed: "모임 수정에 실패했습니다.",
-  missing_meeting: "모임 정보를 찾지 못했습니다."
-};
-
 export default async function EditMeetingPage({
-  params,
-  searchParams
+  params
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ meeting_error?: string; meeting_message?: string }>;
 }) {
   const { id } = await params;
-  const query = await searchParams;
   const supabase = await createSupabaseServerClient();
   const userId = await getCurrentUserId(supabase);
 
@@ -62,8 +52,6 @@ export default async function EditMeetingPage({
   }
 
   const defaults = toFormDefaults(currentMeeting as MeetingRecord);
-  const message =
-    query?.meeting_message || (query?.meeting_error ? messageMap[query.meeting_error] : null);
 
   return (
     <main className="min-h-screen bg-app text-ink">
@@ -83,12 +71,6 @@ export default async function EditMeetingPage({
             <h1 className="mt-2 text-[30px] font-bold leading-10">{currentMeeting.title}</h1>
           </div>
         </header>
-
-        {message ? (
-          <div className="mt-5 rounded-2xl border border-[#FBD6A3] bg-[#FFF7E8] px-5 py-4 text-sm font-semibold text-[#8A5200]">
-            {message}
-          </div>
-        ) : null}
 
         <form action={updateMeeting} className="mt-6 grid gap-5 rounded-2xl bg-white p-5 shadow-card sm:p-6">
           <input name="meetingId" type="hidden" value={currentMeeting.id} />

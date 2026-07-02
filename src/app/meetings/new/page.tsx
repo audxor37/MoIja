@@ -25,21 +25,7 @@ const reminderRules = [
   "취소 발생 시 대기자 전환 안내"
 ];
 
-const messageMap: Record<string, string> = {
-  auth_required: "로그인이 필요합니다. 다시 로그인해 주세요.",
-  permission_denied: "모임을 만들 수 있는 Owner 또는 Manager 권한이 필요합니다.",
-  create_failed: "모임 저장에 실패했습니다. 입력값과 Supabase 스키마를 확인해 주세요."
-};
-
-export default async function NewMeetingPage({
-  searchParams
-}: {
-  searchParams?: Promise<{ meeting_error?: string; meeting_message?: string }>;
-}) {
-  const params = await searchParams;
-  const message =
-    params?.meeting_message || (params?.meeting_error ? messageMap[params.meeting_error] : null);
-
+export default async function NewMeetingPage() {
   return (
     <main className="min-h-screen bg-app text-ink">
       <div className="mx-auto flex w-full max-w-7xl flex-col px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
@@ -68,12 +54,6 @@ export default async function NewMeetingPage({
             </p>
           </div>
         </header>
-
-        {message ? (
-          <div className="mt-5 rounded-2xl border border-[#FBD6A3] bg-[#FFF7E8] px-5 py-4 text-sm font-semibold text-[#8A5200]">
-            {message}
-          </div>
-        ) : null}
 
         <section className="grid gap-6 py-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:py-8">
           <form action={createMeeting} className="grid gap-5 rounded-2xl bg-white p-5 shadow-card sm:p-6">

@@ -1,15 +1,14 @@
 "use client";
 
-import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { performDeleteMeeting } from "@/app/meetings/actions";
 import { queryKeys } from "@/lib/query-keys";
+import { useToast } from "@/components/toast-provider";
 
 export function DeleteMeetingButton({ meetingId, onDeleted }: { meetingId: string; onDeleted?: (meetingId: string) => void }) {
   const queryClient = useQueryClient();
-  const [message, setMessage] = useState<string | null>(null);
-  const [messageTone, setMessageTone] = useState<"success" | "error">("success");
+  const showToast = useToast();
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -18,8 +17,7 @@ export function DeleteMeetingButton({ meetingId, onDeleted }: { meetingId: strin
       return performDeleteMeeting(formData);
     },
     onSuccess: (result) => {
-      setMessage(result.message);
-      setMessageTone(result.ok ? "success" : "error");
+      showToast({ message: result.message, tone: result.ok ? "success" : "error" });
 
       if (result.ok) {
         onDeleted?.(result.data.meetingId);
@@ -28,8 +26,7 @@ export function DeleteMeetingButton({ meetingId, onDeleted }: { meetingId: strin
       }
     },
     onError: () => {
-      setMessage("모임 삭제에 실패했습니다.");
-      setMessageTone("error");
+      showToast({ message: "모임 삭제에 실패했습니다.", tone: "error" });
     }
   });
 
@@ -44,9 +41,6 @@ export function DeleteMeetingButton({ meetingId, onDeleted }: { meetingId: strin
         <Trash2 size={16} />
         {mutation.isPending ? "삭제 중" : "삭제"}
       </button>
-      {message ? (
-        <p className={`text-xs font-bold ${messageTone === "success" ? "text-primary" : "text-danger"}`}>{message}</p>
-      ) : null}
     </div>
   );
 }
