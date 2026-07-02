@@ -61,7 +61,7 @@ test("rejects meetings without a title", () => {
 
   assert.deepEqual(result, {
     ok: false,
-    message: "모임 이름을 입력해 주세요."
+    message: "경기 이름을 입력해 주세요."
   });
 });
 

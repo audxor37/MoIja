@@ -50,6 +50,6 @@ test("maps guest invite rpc errors to onboarding result codes", () => {
 });
 
 test("uses distinct success messages for team and guest invite joins", () => {
-  assert.equal(getInviteJoinSuccessMessage("team"), "모임에 가입했습니다.");
+  assert.equal(getInviteJoinSuccessMessage("team"), "팀에 가입했습니다.");
   assert.equal(getInviteJoinSuccessMessage("guest"), "용병으로 경기 참석이 확정되었습니다.");
 });
