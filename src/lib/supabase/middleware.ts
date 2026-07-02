@@ -64,7 +64,7 @@ export async function updateSession(request: NextRequest) {
   });
 
   try {
-    const { error } = await supabase.auth.getUser();
+    const { error } = await supabase.auth.getClaims();
 
     if (error && isMissingRefreshTokenError(error)) {
       expireSupabaseAuthCookies(request, response);

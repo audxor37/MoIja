@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, CalendarClock, MapPin, Save, Timer, Users } from "lucide-react";
 import { updateMeeting } from "@/app/meetings/actions";
 import { canManageMeeting } from "@/lib/meetings";
+import { getCurrentUserId } from "@/lib/supabase/auth-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const messageMap: Record<string, string> = {
@@ -22,11 +23,9 @@ export default async function EditMeetingPage({
   const { id } = await params;
   const query = await searchParams;
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const userId = await getCurrentUserId(supabase);
 
-  if (!user) {
+  if (!userId) {
     redirect("/?meeting_error=auth_required");
   }
 
@@ -54,11 +53,11 @@ export default async function EditMeetingPage({
     .from("team_members")
     .select("role")
     .eq("team_id", currentMeeting.team_id)
-    .eq("profile_id", user.id)
+    .eq("profile_id", userId)
     .maybeSingle();
   const role = (membership as { role?: string } | null)?.role ?? null;
 
-  if (!canManageMeeting({ currentUserId: user.id, createdBy: currentMeeting.created_by, role })) {
+  if (!canManageMeeting({ currentUserId: userId, createdBy: currentMeeting.created_by, role })) {
     redirect("/?meeting_error=permission_denied");
   }
 

@@ -8,6 +8,7 @@ import {
   mapDashboardMeetings
 } from "@/lib/dashboard-session";
 import { isMissingRefreshTokenError } from "@/lib/supabase/auth-error";
+import { getCurrentUserId } from "@/lib/supabase/auth-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type TeamSession = {
@@ -26,38 +27,23 @@ export type DashboardSession = {
 export const getDashboardSession = cache(async function getDashboardSession(): Promise<DashboardSession> {
   try {
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: userError
-    } = await supabase.auth.getUser();
+    const userId = await getCurrentUserId(supabase);
 
-    if (userError) {
-      if (isMissingRefreshTokenError(userError)) {
-        return { nickname: null, team: null };
-      }
-
-      throw userError;
-    }
-
-    if (!user) {
+    if (!userId) {
       return { nickname: null, team: null };
     }
 
-    const profilePromise = supabase.from("profiles").select("nickname").eq("id", user.id).maybeSingle();
+    const profilePromise = supabase.from("profiles").select("nickname").eq("id", userId).maybeSingle();
     const membershipPromise = supabase
       .from("team_members")
       .select("role, teams(id, name, invite_code)")
-      .eq("profile_id", user.id)
+      .eq("profile_id", userId)
       .order("joined_at", { ascending: true })
       .limit(1)
       .maybeSingle();
 
     const [{ data: profile }, { data: membership }] = await Promise.all([profilePromise, membershipPromise]);
-    const nickname =
-      profile?.nickname ||
-      (typeof user.user_metadata.nickname === "string" ? user.user_metadata.nickname : null) ||
-      (typeof user.user_metadata.name === "string" ? user.user_metadata.name : null) ||
-      "운영자";
+    const nickname = profile?.nickname || "운영자";
 
     type TeamRecord = { id: string; name: string; invite_code: string | null };
     const typedMembership = membership as
@@ -102,7 +88,7 @@ export const getDashboardSession = cache(async function getDashboardSession(): P
         ? supabase.from("match_attendances").select("match_id, status").in("match_id", matchIds)
         : Promise.resolve({ data: [] }),
       matchIds.length > 0
-        ? supabase.from("match_attendances").select("match_id, status").eq("profile_id", user.id).in("match_id", matchIds)
+        ? supabase.from("match_attendances").select("match_id, status").eq("profile_id", userId).in("match_id", matchIds)
         : Promise.resolve({ data: [] })
     ]);
     const attendanceSummaryByMatchId = new Map<string, DashboardMeeting["attendanceSummary"]>();
@@ -128,7 +114,7 @@ export const getDashboardSession = cache(async function getDashboardSession(): P
     const meetings = mapDashboardMeetings(
       matchRows,
       {
-        currentUserId: user.id,
+        currentUserId: userId,
         role: typedMembership.role
       },
       attendanceSummaryByMatchId,

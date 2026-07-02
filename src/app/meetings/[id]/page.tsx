@@ -9,12 +9,14 @@ import {
   Users
 } from "lucide-react";
 import { AttendanceResponsePanel } from "@/components/attendance-response-panel";
+import { MatchCyclePanel, type MatchCyclePlayer } from "@/components/match-cycle-panel";
 import { ManagedAttendancePanel, type ManagedAttendanceMember } from "@/components/managed-attendance-panel";
 import {
   attendanceStatusLabel,
   type AttendanceStatus
 } from "@/lib/attendance";
 import { canManageMeeting, formatMeetingDateTime } from "@/lib/meetings";
+import { getCurrentUserId } from "@/lib/supabase/auth-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const attendanceMessages: Record<string, string> = {
@@ -35,11 +37,9 @@ export default async function MeetingDetailPage({
   const { id } = await params;
   const query = await searchParams;
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const userId = await getCurrentUserId(supabase);
 
-  if (!user) {
+  if (!userId) {
     redirect("/?meeting_error=auth_required");
   }
 
@@ -59,22 +59,23 @@ export default async function MeetingDetailPage({
     .from("match_attendances")
     .select("status, updated_at")
     .eq("match_id", id)
-    .eq("profile_id", user.id)
+    .eq("profile_id", userId)
     .maybeSingle();
   const myAttendance = attendance as { status: AttendanceStatus; updated_at: string } | null;
   const { data: membership } = await supabase
     .from("team_members")
     .select("role")
     .eq("team_id", currentMeeting.team_id)
-    .eq("profile_id", user.id)
+    .eq("profile_id", userId)
     .maybeSingle();
   const currentRole = (membership as { role?: string } | null)?.role ?? null;
   const canManageAttendance = canManageMeeting({
-    currentUserId: user.id,
+    currentUserId: userId,
     createdBy: currentMeeting.created_by,
     role: currentRole
   });
-  const [membersResult, attendancesResult] = canManageAttendance
+  const canManageLineup = ["owner", "manager", "coach"].includes(currentRole ?? "");
+  const [membersResult, attendancesResult] = canManageAttendance || canManageLineup
     ? await Promise.all([
         supabase
           .from("team_members")
@@ -100,6 +101,67 @@ export default async function MeetingDetailPage({
       attendance: attendanceByProfile.get(member.profile_id) ?? null
     };
   });
+  const [
+    matchGuestsResult,
+    matchInvitesResult,
+    lineupResult,
+    matchRecordResult
+  ] = await Promise.all([
+    canManageAttendance || canManageLineup
+      ? supabase
+          .from("match_guests")
+          .select("id, guest_id, status, guests(display_name, avatar_url)")
+          .eq("match_id", currentMeeting.id)
+      : { data: [] },
+    canManageAttendance
+      ? supabase
+          .from("match_invites")
+          .select("id, code, expires_at, used_count, max_uses")
+          .eq("match_id", currentMeeting.id)
+          .order("created_at", { ascending: false })
+      : { data: [] },
+    canManageLineup
+      ? supabase
+          .from("match_lineups")
+          .select("id, formation, board_note")
+          .eq("match_id", currentMeeting.id)
+          .maybeSingle()
+      : { data: null },
+    canManageAttendance
+      ? supabase
+          .from("match_records")
+          .select("result, goals_for, goals_against, opponent_name, formation, memo")
+          .eq("match_id", currentMeeting.id)
+          .maybeSingle()
+      : { data: null }
+  ]);
+  const cyclePlayers: MatchCyclePlayer[] = [
+    ...memberRows.map((member) => ({
+      id: `member:${member.profileId}`,
+      playerKind: "member" as const,
+      profileId: member.profileId,
+      guestId: null,
+      matchGuestId: null,
+      displayName: member.nickname,
+      status: member.attendance?.status ?? "unanswered",
+      positionCode: null
+    })),
+    ...(((matchGuestsResult.data ?? []) as MatchGuestRow[]).map((guest) => {
+      const guestProfile = Array.isArray(guest.guests) ? guest.guests[0] : guest.guests;
+      return {
+        id: `guest:${guest.guest_id}`,
+        playerKind: "guest" as const,
+        profileId: null,
+        guestId: guest.guest_id,
+        matchGuestId: guest.id,
+        displayName: guestProfile?.display_name ?? "용병",
+        status: guest.status,
+        positionCode: null
+      };
+    }))
+  ];
+  const lineup = lineupResult.data as { formation: string; board_note: string | null } | null;
+  const matchRecord = matchRecordResult.data as MatchRecordRow | null;
   const message =
     query?.attendance_message ||
     (query?.attendance_error ? attendanceMessages[query.attendance_error] : null);
@@ -162,6 +224,36 @@ export default async function MeetingDetailPage({
                 meetingId={currentMeeting.id}
               />
             ) : null}
+
+            {(canManageAttendance || canManageLineup) ? (
+              <MatchCyclePanel
+                canManageGuests={canManageAttendance}
+                canManageLineup={canManageLineup}
+                canManageRecord={canManageAttendance}
+                initialInvites={((matchInvitesResult.data ?? []) as MatchInviteRow[]).map((invite) => ({
+                  id: invite.id,
+                  code: invite.code,
+                  expiresAt: invite.expires_at,
+                  usedCount: invite.used_count,
+                  maxUses: invite.max_uses
+                }))}
+                initialLineup={lineup ? { formation: lineup.formation, boardNote: lineup.board_note } : null}
+                initialPlayers={cyclePlayers}
+                initialRecord={
+                  matchRecord
+                    ? {
+                        result: matchRecord.result,
+                        goalsFor: matchRecord.goals_for,
+                        goalsAgainst: matchRecord.goals_against,
+                        opponentName: matchRecord.opponent_name,
+                        formation: matchRecord.formation,
+                        memo: matchRecord.memo
+                      }
+                    : null
+                }
+                meetingId={currentMeeting.id}
+              />
+            ) : null}
           </section>
 
           <aside className="grid gap-5 self-start">
@@ -212,6 +304,30 @@ type TeamMemberRow = {
   profile_id: string;
   role: string;
   profiles?: { nickname?: string | null; avatar_url?: string | null } | { nickname?: string | null; avatar_url?: string | null }[] | null;
+};
+
+type MatchGuestRow = {
+  id: string;
+  guest_id: string;
+  status: string;
+  guests?: { display_name?: string | null; avatar_url?: string | null } | { display_name?: string | null; avatar_url?: string | null }[] | null;
+};
+
+type MatchInviteRow = {
+  id: string;
+  code: string;
+  expires_at: string | null;
+  used_count: number;
+  max_uses: number | null;
+};
+
+type MatchRecordRow = {
+  result: "win" | "draw" | "loss";
+  goals_for: number;
+  goals_against: number;
+  opponent_name: string | null;
+  formation: string | null;
+  memo: string | null;
 };
 
 function InfoRow({

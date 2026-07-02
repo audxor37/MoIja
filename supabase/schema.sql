@@ -197,7 +197,7 @@ as $$
     select 1
     from team_members
     where team_id = target_team_id
-      and profile_id = auth.uid()
+      and profile_id = (select auth.uid())
       and (allowed_roles is null or role = any(allowed_roles))
   );
 $$;
@@ -390,6 +390,91 @@ $$;
 revoke all on function public.refresh_member_reliability_score(uuid, uuid, uuid) from public;
 grant execute on function public.refresh_member_reliability_score(uuid, uuid, uuid) to authenticated;
 
+create or replace function public.respond_to_meeting_attendance(
+  input_match_id uuid,
+  input_status attendance_status
+)
+returns attendance_status
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  current_profile_id uuid;
+  target_match_id uuid;
+  target_allow_waitlist boolean;
+  previous_status attendance_status;
+  saved_attendance_id uuid;
+begin
+  current_profile_id := (select auth.uid());
+
+  if current_profile_id is null then
+    raise exception 'auth_required' using errcode = 'P0001';
+  end if;
+
+  if input_status not in ('attending', 'absent', 'waitlisted') then
+    raise exception 'invalid_status' using errcode = 'P0001';
+  end if;
+
+  select id, allow_waitlist
+    into target_match_id, target_allow_waitlist
+    from matches
+   where id = input_match_id;
+
+  if target_match_id is null then
+    raise exception 'missing_meeting' using errcode = 'P0001';
+  end if;
+
+  if input_status = 'waitlisted' and target_allow_waitlist is false then
+    raise exception 'invalid_status' using errcode = 'P0001';
+  end if;
+
+  select status
+    into previous_status
+    from match_attendances
+   where match_id = input_match_id
+     and profile_id = current_profile_id;
+
+  insert into match_attendances (
+    match_id,
+    profile_id,
+    status
+  )
+  values (
+    input_match_id,
+    current_profile_id,
+    input_status
+  )
+  on conflict (match_id, profile_id)
+  do update set
+    status = excluded.status,
+    updated_at = now()
+  returning id into saved_attendance_id;
+
+  if previous_status is distinct from input_status then
+    insert into attendance_events (
+      attendance_id,
+      previous_status,
+      next_status,
+      changed_by
+    )
+    values (
+      saved_attendance_id,
+      previous_status,
+      input_status,
+      current_profile_id
+    );
+  end if;
+
+  return input_status;
+end;
+$$;
+
+revoke all on function public.respond_to_meeting_attendance(uuid, attendance_status) from public;
+revoke all on function public.respond_to_meeting_attendance(uuid, attendance_status) from anon;
+revoke all on function public.respond_to_meeting_attendance(uuid, attendance_status) from service_role;
+grant execute on function public.respond_to_meeting_attendance(uuid, attendance_status) to authenticated;
+
 create or replace function private.touch_updated_at()
 returns trigger
 language plpgsql
@@ -443,32 +528,53 @@ create index if not exists match_invites_match_id_idx on match_invites (match_id
 create index if not exists match_guests_match_id_status_idx on match_guests (match_id, status);
 create index if not exists guests_created_by_idx on guests (created_by);
 create index if not exists reliability_scores_team_score_idx on reliability_scores (team_id, score desc);
+create index if not exists attendance_events_attendance_id_idx on attendance_events (attendance_id);
+create index if not exists attendance_events_changed_by_idx on attendance_events (changed_by);
+create index if not exists match_attendances_profile_match_idx on match_attendances (profile_id, match_id);
+create index if not exists match_guests_guest_id_idx on match_guests (guest_id);
+create index if not exists match_guests_invite_id_idx on match_guests (invite_id);
+create index if not exists match_guests_confirmed_by_idx on match_guests (confirmed_by);
+create index if not exists seasons_team_id_idx on seasons (team_id);
+create index if not exists venues_team_id_idx on venues (team_id);
+create index if not exists reliability_scores_profile_id_idx on reliability_scores (profile_id);
+create index if not exists reliability_scores_season_id_idx on reliability_scores (season_id);
+create index if not exists match_invites_created_by_idx on match_invites (created_by);
+create index if not exists match_records_match_id_idx on match_records (match_id);
+create index if not exists match_records_recorded_by_idx on match_records (recorded_by);
+create index if not exists match_records_season_id_idx on match_records (season_id);
+create index if not exists matches_created_by_idx on matches (created_by);
+create index if not exists matches_venue_id_idx on matches (venue_id);
+create index if not exists member_positions_assigned_by_idx on member_positions (assigned_by);
+create index if not exists member_positions_position_code_idx on member_positions (position_code);
+create index if not exists member_positions_profile_id_idx on member_positions (profile_id);
+create index if not exists player_match_records_match_id_idx on player_match_records (match_id);
+create index if not exists player_match_records_profile_id_idx on player_match_records (profile_id);
 
 create policy "profiles_select_own"
 on profiles for select
 to authenticated
-using (id = auth.uid());
+using (id = (select auth.uid()));
 
 create policy "profiles_insert_own"
 on profiles for insert
 to authenticated
-with check (id = auth.uid());
+with check (id = (select auth.uid()));
 
 create policy "profiles_update_own"
 on profiles for update
 to authenticated
-using (id = auth.uid())
-with check (id = auth.uid());
+using (id = (select auth.uid()))
+with check (id = (select auth.uid()));
 
 create policy "teams_select_member"
 on teams for select
 to authenticated
-using (created_by = auth.uid() or private.is_team_member(id));
+using (created_by = (select auth.uid()) or private.is_team_member(id));
 
 create policy "teams_insert_owner"
 on teams for insert
 to authenticated
-with check (created_by = auth.uid());
+with check (created_by = (select auth.uid()));
 
 create policy "teams_update_manager"
 on teams for update
@@ -479,27 +585,25 @@ with check (private.is_team_member(id, array['owner', 'manager']::team_role[]));
 create policy "team_members_select_team"
 on team_members for select
 to authenticated
-using (profile_id = auth.uid() or private.is_team_member(team_id, array['owner', 'manager', 'coach']::team_role[]));
+using (profile_id = (select auth.uid()) or private.is_team_member(team_id, array['owner', 'manager', 'coach']::team_role[]));
 
-create policy "team_members_insert_manager"
+create policy "team_members_insert_authorized"
 on team_members for insert
 to authenticated
 with check (
-  role <> 'owner'
-  and private.is_team_member(team_id, array['owner', 'manager']::team_role[])
-);
-
-create policy "team_members_insert_owner_after_create"
-on team_members for insert
-to authenticated
-with check (
-  profile_id = auth.uid()
-  and role = 'owner'
-  and exists (
-    select 1
-    from teams
-    where teams.id = team_members.team_id
-      and teams.created_by = auth.uid()
+  (
+    role <> 'owner'
+    and private.is_team_member(team_id, array['owner', 'manager']::team_role[])
+  )
+  or (
+    profile_id = (select auth.uid())
+    and role = 'owner'
+    and exists (
+      select 1
+      from teams
+      where teams.id = team_members.team_id
+        and teams.created_by = (select auth.uid())
+    )
   )
 );
 
@@ -557,7 +661,7 @@ create policy "attendances_select_team"
 on match_attendances for select
 to authenticated
 using (
-  profile_id = auth.uid()
+  profile_id = (select auth.uid())
   or exists (
     select 1
     from matches
@@ -566,16 +670,12 @@ using (
   )
 );
 
-create policy "attendances_insert_own"
-on match_attendances for insert
-to authenticated
-with check (profile_id = auth.uid());
-
-create policy "attendances_insert_manager"
+create policy "attendances_insert_authorized"
 on match_attendances for insert
 to authenticated
 with check (
-  exists (
+  profile_id = (select auth.uid())
+  or exists (
     select 1
     from matches
     where matches.id = match_attendances.match_id
@@ -587,7 +687,7 @@ create policy "attendances_update_own_or_manager"
 on match_attendances for update
 to authenticated
 using (
-  profile_id = auth.uid()
+  profile_id = (select auth.uid())
   or exists (
     select 1
     from matches
@@ -596,7 +696,7 @@ using (
   )
 )
 with check (
-  profile_id = auth.uid()
+  profile_id = (select auth.uid())
   or exists (
     select 1
     from matches
@@ -617,8 +717,21 @@ using (
   )
 );
 
-create policy "match_invites_manage_manager"
-on match_invites for all
+create policy "match_invites_insert_manager"
+on match_invites for insert
+to authenticated
+with check (
+  created_by = (select auth.uid())
+  and exists (
+    select 1
+    from matches
+    where matches.id = match_invites.match_id
+      and private.is_team_member(matches.team_id, array['owner', 'manager']::team_role[])
+  )
+);
+
+create policy "match_invites_update_manager"
+on match_invites for update
 to authenticated
 using (
   exists (
@@ -629,8 +742,20 @@ using (
   )
 )
 with check (
-  created_by = auth.uid()
+  created_by = (select auth.uid())
   and exists (
+    select 1
+    from matches
+    where matches.id = match_invites.match_id
+      and private.is_team_member(matches.team_id, array['owner', 'manager']::team_role[])
+  )
+);
+
+create policy "match_invites_delete_manager"
+on match_invites for delete
+to authenticated
+using (
+  exists (
     select 1
     from matches
     where matches.id = match_invites.match_id
@@ -654,13 +779,13 @@ using (
 create policy "guests_insert_manager"
 on guests for insert
 to authenticated
-with check (created_by = auth.uid());
+with check (created_by = (select auth.uid()));
 
 create policy "guests_update_creator_or_manager"
 on guests for update
 to authenticated
 using (
-  created_by = auth.uid()
+  created_by = (select auth.uid())
   or exists (
     select 1
     from match_guests
@@ -670,7 +795,7 @@ using (
   )
 )
 with check (
-  created_by = auth.uid()
+  created_by = (select auth.uid())
   or exists (
     select 1
     from match_guests
@@ -692,8 +817,20 @@ using (
   )
 );
 
-create policy "match_guests_manage_manager"
-on match_guests for all
+create policy "match_guests_insert_manager"
+on match_guests for insert
+to authenticated
+with check (
+  exists (
+    select 1
+    from matches
+    where matches.id = match_guests.match_id
+      and private.is_team_member(matches.team_id, array['owner', 'manager']::team_role[])
+  )
+);
+
+create policy "match_guests_update_manager"
+on match_guests for update
 to authenticated
 using (
   exists (
@@ -704,6 +841,18 @@ using (
   )
 )
 with check (
+  exists (
+    select 1
+    from matches
+    where matches.id = match_guests.match_id
+      and private.is_team_member(matches.team_id, array['owner', 'manager']::team_role[])
+  )
+);
+
+create policy "match_guests_delete_manager"
+on match_guests for delete
+to authenticated
+using (
   exists (
     select 1
     from matches
@@ -725,30 +874,25 @@ using (
   )
 );
 
-create policy "attendance_events_insert_manager"
+create policy "attendance_events_insert_authorized"
 on attendance_events for insert
 to authenticated
 with check (
-  changed_by = auth.uid()
-  and exists (
-    select 1
-    from match_attendances
-    join matches on matches.id = match_attendances.match_id
-    where match_attendances.id = attendance_events.attendance_id
-      and private.is_team_member(matches.team_id, array['owner', 'manager']::team_role[])
-  )
-);
-
-create policy "attendance_events_insert_own_response"
-on attendance_events for insert
-to authenticated
-with check (
-  changed_by = auth.uid()
-  and exists (
-    select 1
-    from match_attendances
-    where match_attendances.id = attendance_events.attendance_id
-      and match_attendances.profile_id = auth.uid()
+  changed_by = (select auth.uid())
+  and (
+    exists (
+      select 1
+      from match_attendances
+      where match_attendances.id = attendance_events.attendance_id
+        and match_attendances.profile_id = (select auth.uid())
+    )
+    or exists (
+      select 1
+      from match_attendances
+      join matches on matches.id = match_attendances.match_id
+      where match_attendances.id = attendance_events.attendance_id
+        and private.is_team_member(matches.team_id, array['owner', 'manager']::team_role[])
+    )
   )
 );
 
@@ -787,7 +931,7 @@ using (
   )
 )
 with check (
-  recorded_by = auth.uid()
+  recorded_by = (select auth.uid())
   and exists (
     select 1
     from matches
@@ -811,7 +955,7 @@ on member_positions for all
 to authenticated
 using (private.is_team_member(team_id, array['owner', 'manager', 'coach']::team_role[]))
 with check (
-  assigned_by = auth.uid()
+  assigned_by = (select auth.uid())
   and private.is_team_member(team_id, array['owner', 'manager', 'coach']::team_role[])
 );
 
@@ -850,10 +994,221 @@ with check (
 create policy "reliability_scores_select_team"
 on reliability_scores for select
 to authenticated
-using (profile_id = auth.uid() or private.is_team_member(team_id, array['owner', 'manager', 'coach']::team_role[]));
+using (profile_id = (select auth.uid()) or private.is_team_member(team_id, array['owner', 'manager', 'coach']::team_role[]));
 
 create policy "reliability_scores_manage_manager"
 on reliability_scores for all
 to authenticated
 using (private.is_team_member(team_id, array['owner', 'manager']::team_role[]))
 with check (private.is_team_member(team_id, array['owner', 'manager']::team_role[]));
+
+-- Minimum match cycle additions: guests, lineup board, and official records.
+alter table match_records
+  add column if not exists opponent_name text,
+  add column if not exists formation text,
+  add column if not exists memo text;
+
+create unique index if not exists match_records_match_id_unique
+  on match_records (match_id);
+
+alter table player_match_records
+  add column if not exists guest_id uuid references guests(id) on delete cascade,
+  add column if not exists position_code text references positions(code),
+  add column if not exists lineup_slot text,
+  add column if not exists minutes_played integer not null default 0 check (minutes_played >= 0),
+  add column if not exists note text;
+
+alter table player_match_records alter column profile_id drop not null;
+alter table player_match_records
+  add constraint player_match_records_one_player_check
+  check (
+    (profile_id is not null and guest_id is null)
+    or (profile_id is null and guest_id is not null)
+  );
+
+create unique index if not exists player_match_records_member_unique
+  on player_match_records (match_id, profile_id)
+  where profile_id is not null;
+
+create unique index if not exists player_match_records_guest_unique
+  on player_match_records (match_id, guest_id)
+  where guest_id is not null;
+
+create table match_lineups (
+  id uuid primary key default gen_random_uuid(),
+  match_id uuid not null references matches(id) on delete cascade,
+  formation text not null default '2-2',
+  board_note text,
+  updated_by uuid not null references profiles(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (match_id)
+);
+
+create table match_lineup_players (
+  id uuid primary key default gen_random_uuid(),
+  lineup_id uuid not null references match_lineups(id) on delete cascade,
+  profile_id uuid references profiles(id) on delete cascade,
+  guest_id uuid references guests(id) on delete cascade,
+  display_name text not null,
+  player_kind text not null check (player_kind in ('member', 'guest')),
+  position_code text references positions(code),
+  squad_label text,
+  x_percent integer not null default 50 check (x_percent between 0 and 100),
+  y_percent integer not null default 50 check (y_percent between 0 and 100),
+  is_starter boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check (
+    (player_kind = 'member' and profile_id is not null and guest_id is null)
+    or (player_kind = 'guest' and guest_id is not null and profile_id is null)
+  )
+);
+
+alter table match_lineups enable row level security;
+alter table match_lineup_players enable row level security;
+
+create index if not exists match_lineups_match_id_idx on match_lineups (match_id);
+create index if not exists match_lineup_players_lineup_id_idx on match_lineup_players (lineup_id);
+
+create policy "match_lineups_select_team"
+on match_lineups for select
+to authenticated
+using (
+  exists (
+    select 1 from matches
+    where matches.id = match_lineups.match_id
+      and private.is_team_member(matches.team_id)
+  )
+);
+
+create policy "match_lineups_manage_coach"
+on match_lineups for all
+to authenticated
+using (
+  exists (
+    select 1 from matches
+    where matches.id = match_lineups.match_id
+      and private.is_team_member(matches.team_id, array['owner', 'manager', 'coach']::team_role[])
+  )
+)
+with check (
+  exists (
+    select 1 from matches
+    where matches.id = match_lineups.match_id
+      and private.is_team_member(matches.team_id, array['owner', 'manager', 'coach']::team_role[])
+  )
+);
+
+create policy "match_lineup_players_select_team"
+on match_lineup_players for select
+to authenticated
+using (
+  exists (
+    select 1
+    from match_lineups
+    join matches on matches.id = match_lineups.match_id
+    where match_lineups.id = match_lineup_players.lineup_id
+      and private.is_team_member(matches.team_id)
+  )
+);
+
+create policy "match_lineup_players_manage_coach"
+on match_lineup_players for all
+to authenticated
+using (
+  exists (
+    select 1
+    from match_lineups
+    join matches on matches.id = match_lineups.match_id
+    where match_lineups.id = match_lineup_players.lineup_id
+      and private.is_team_member(matches.team_id, array['owner', 'manager', 'coach']::team_role[])
+  )
+)
+with check (
+  exists (
+    select 1
+    from match_lineups
+    join matches on matches.id = match_lineups.match_id
+    where match_lineups.id = match_lineup_players.lineup_id
+      and private.is_team_member(matches.team_id, array['owner', 'manager', 'coach']::team_role[])
+  )
+);
+
+create or replace function public.create_match_with_default_attendances(
+  input_title text,
+  input_starts_at timestamptz,
+  input_capacity integer,
+  input_attendance_method attendance_method,
+  input_attendance_closes_at timestamptz,
+  input_location_note text default null,
+  input_memo text default null,
+  input_allow_waitlist boolean default true
+)
+returns uuid
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  actor_id uuid;
+  target_team_id uuid;
+  created_match_id uuid;
+begin
+  actor_id := auth.uid();
+
+  if actor_id is null then
+    raise exception 'auth_required';
+  end if;
+
+  select team_members.team_id
+    into target_team_id
+    from team_members
+   where team_members.profile_id = actor_id
+     and team_members.role in ('owner', 'manager')
+   order by team_members.joined_at asc
+   limit 1;
+
+  if target_team_id is null then
+    raise exception 'permission_denied';
+  end if;
+
+  insert into matches (
+    team_id,
+    title,
+    starts_at,
+    capacity,
+    attendance_method,
+    attendance_closes_at,
+    location_note,
+    memo,
+    allow_waitlist,
+    created_by
+  )
+  values (
+    target_team_id,
+    input_title,
+    input_starts_at,
+    input_capacity,
+    input_attendance_method,
+    input_attendance_closes_at,
+    input_location_note,
+    input_memo,
+    input_allow_waitlist,
+    actor_id
+  )
+  returning id into created_match_id;
+
+  insert into match_attendances (match_id, profile_id, status)
+  select created_match_id, team_members.profile_id, 'attending'
+    from team_members
+   where team_members.team_id = target_team_id
+  on conflict (match_id, profile_id) do nothing;
+
+  return created_match_id;
+end;
+$$;
+
+revoke all on function public.create_match_with_default_attendances(text, timestamptz, integer, attendance_method, timestamptz, text, text, boolean) from public;
+grant execute on function public.create_match_with_default_attendances(text, timestamptz, integer, attendance_method, timestamptz, text, text, boolean) to authenticated;
