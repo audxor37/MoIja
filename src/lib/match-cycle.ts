@@ -56,6 +56,11 @@ export type LineupSlot = {
   guestId: string | null;
   displayName: string | null;
 };
+export type BoardImageSaveFallback = {
+  platform: "ios" | "android" | "desktop";
+  primaryAction: "share" | "download" | "open";
+  message: string;
+};
 
 export const POSITION_LABELS: Record<string, string> = {
   GK: "골키퍼",
@@ -386,4 +391,41 @@ export function normalizeNullableText(value: string) {
 
 export function isPlayableAttendanceStatus(status: AttendanceStatus | string | null | undefined) {
   return status === "attending";
+}
+
+export function getBoardImageSaveFallback({
+  userAgent,
+  canShareFiles
+}: {
+  userAgent: string;
+  canShareFiles: boolean;
+}): BoardImageSaveFallback {
+  const normalizedUserAgent = userAgent.toLowerCase();
+  const isIos =
+    /iphone|ipad|ipod/.test(normalizedUserAgent) ||
+    (normalizedUserAgent.includes("macintosh") && normalizedUserAgent.includes("mobile"));
+  const isAndroid = normalizedUserAgent.includes("android");
+  const platform = isIos ? "ios" : isAndroid ? "android" : "desktop";
+
+  if (canShareFiles) {
+    return {
+      platform,
+      primaryAction: "share",
+      message: "복사가 제한된 환경입니다. 사진첩 저장을 선택해 공유 시트에서 이미지 저장을 진행해 주세요."
+    };
+  }
+
+  if (platform === "ios") {
+    return {
+      platform,
+      primaryAction: "open",
+      message: "복사가 제한된 환경입니다. 이미지를 연 뒤 길게 눌러 사진에 저장해 주세요."
+    };
+  }
+
+  return {
+    platform,
+    primaryAction: "download",
+    message: "복사가 제한된 환경입니다. 이미지 다운로드로 저장해 주세요."
+  };
 }

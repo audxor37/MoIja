@@ -9,6 +9,7 @@ import {
   getDefaultLineupPlacements,
   getDefaultLineupSlots,
   getPositionLabel,
+  getBoardImageSaveFallback,
   validateGuestOperatorStatus,
   validateGuestResponseStatus,
   validateMatchResult
@@ -117,4 +118,30 @@ test("maps players onto formation positions and keeps bench players outside star
   assert.equal(placements[10].isStarter, true);
   assert.equal(placements[11].positionCode, "SUB");
   assert.equal(placements[11].isStarter, false);
+});
+
+test("guides mobile board image save by OS capability", () => {
+  assert.deepEqual(
+    getBoardImageSaveFallback({
+      userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Version/17.0 Mobile/15E148 Safari/604.1",
+      canShareFiles: true
+    }),
+    {
+      platform: "ios",
+      primaryAction: "share",
+      message: "복사가 제한된 환경입니다. 사진첩 저장을 선택해 공유 시트에서 이미지 저장을 진행해 주세요."
+    }
+  );
+
+  assert.deepEqual(
+    getBoardImageSaveFallback({
+      userAgent: "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/125.0 Mobile Safari/537.36",
+      canShareFiles: false
+    }),
+    {
+      platform: "android",
+      primaryAction: "download",
+      message: "복사가 제한된 환경입니다. 이미지 다운로드로 저장해 주세요."
+    }
+  );
 });
