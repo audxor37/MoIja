@@ -199,7 +199,7 @@ export async function createMeeting(formData: FormData) {
 
   if (!rpcError) {
     revalidatePath("/");
-    redirectWithMeetingMessage("모임을 만들었습니다.");
+    redirectWithMeetingMessage("경기를 만들었습니다.");
   }
 
   console.warn("[meetings:create] RPC unavailable; falling back to direct insert.", rpcError);
@@ -229,7 +229,7 @@ export async function createMeeting(formData: FormData) {
         await createDefaultMatchInvite(supabase, fallbackMeeting.id, user.id);
       }
       revalidatePath("/");
-      redirectWithMeetingMessage("모임을 만들었습니다.");
+        redirectWithMeetingMessage("경기를 만들었습니다.");
     }
 
     console.error("[meetings:create] Base schema insert failed.", fallbackError);
@@ -247,7 +247,7 @@ export async function createMeeting(formData: FormData) {
   }
 
   revalidatePath("/");
-  redirectWithMeetingMessage("모임을 만들었습니다.");
+  redirectWithMeetingMessage("경기를 만들었습니다.");
 }
 
 async function createDefaultMemberAttendances(
@@ -348,7 +348,7 @@ export async function updateMeeting(formData: FormData) {
     if (!fallbackError) {
       revalidatePath("/");
       revalidatePath(`/meetings/${meetingId}/edit`);
-      redirectWithMeetingMessage("모임 정보를 수정했습니다.");
+      redirectWithMeetingMessage("경기 정보를 수정했습니다.");
     }
 
     console.error("[meetings:update] Base schema update failed.", fallbackError);
@@ -362,7 +362,7 @@ export async function updateMeeting(formData: FormData) {
 
   revalidatePath("/");
   revalidatePath(`/meetings/${meetingId}/edit`);
-  redirectWithMeetingMessage("모임 정보를 수정했습니다.");
+  redirectWithMeetingMessage("경기 정보를 수정했습니다.");
 }
 
 export async function deleteMeeting(formData: FormData) {
@@ -380,7 +380,7 @@ export async function performDeleteMeeting(formData: FormData): Promise<ActionRe
   const meetingId = formValue(formData, "meetingId");
 
   if (!meetingId) {
-    return { ok: false, code: "missing", message: "모임 정보를 찾지 못했습니다." };
+    return { ok: false, code: "missing", message: "경기 정보를 찾지 못했습니다." };
   }
 
   const { supabase, user } = await getCurrentUserAndTeam();
@@ -392,21 +392,21 @@ export async function performDeleteMeeting(formData: FormData): Promise<ActionRe
   const { meeting, canManage } = await getMeetingManagementContext(supabase, user.id, meetingId);
 
   if (!meeting) {
-    return { ok: false, code: "missing", message: "모임 정보를 찾지 못했습니다." };
+    return { ok: false, code: "missing", message: "경기 정보를 찾지 못했습니다." };
   }
 
   if (!canManage) {
-    return { ok: false, code: "permission", message: "모임을 관리할 Owner 또는 Manager 권한이 필요합니다." };
+    return { ok: false, code: "permission", message: "경기를 관리할 Owner 또는 Manager 권한이 필요합니다." };
   }
 
   const { error } = await supabase.from("matches").delete().eq("id", meetingId).eq("team_id", meeting.team_id);
 
   if (error) {
     console.error("[meetings:delete] Delete failed.", error);
-    return { ok: false, code: "delete", message: "모임 삭제에 실패했습니다." };
+    return { ok: false, code: "delete", message: "경기 삭제에 실패했습니다." };
   }
 
-  return { ok: true, message: "모임을 삭제했습니다.", data: { meetingId, teamId: meeting.team_id } };
+  return { ok: true, message: "경기를 삭제했습니다.", data: { meetingId, teamId: meeting.team_id } };
 }
 
 export async function respondToMeetingAttendance(formData: FormData) {
@@ -427,7 +427,7 @@ export async function performRespondToMeetingAttendance(
   const nextStatus = validateAttendanceResponseStatus(formValue(formData, "status"));
 
   if (!meetingId) {
-    return { ok: false, code: "missing", message: "모임 정보를 찾지 못했습니다." };
+    return { ok: false, code: "missing", message: "경기 정보를 찾지 못했습니다." };
   }
 
   if (!nextStatus) {
@@ -447,7 +447,7 @@ export async function performRespondToMeetingAttendance(
     }
 
     if (code === "missing") {
-      return { ok: false, code, message: "모임 정보를 찾지 못했습니다." };
+      return { ok: false, code, message: "경기 정보를 찾지 못했습니다." };
     }
 
     if (code === "invalid") {
@@ -482,7 +482,7 @@ export async function performUpdateManagedAttendance(
   const nextStatus = validateOperatorAttendanceStatus(formValue(formData, "status"));
 
   if (!meetingId) {
-    return { ok: false, code: "missing", message: "모임 정보를 찾지 못했습니다." };
+    return { ok: false, code: "missing", message: "경기 정보를 찾지 못했습니다." };
   }
 
   if (!profileId || !nextStatus) {
@@ -498,7 +498,7 @@ export async function performUpdateManagedAttendance(
   const { meeting, canManage } = await getMeetingManagementContext(supabase, user.id, meetingId);
 
   if (!meeting) {
-    return { ok: false, code: "missing", message: "모임 정보를 찾지 못했습니다." };
+    return { ok: false, code: "missing", message: "경기 정보를 찾지 못했습니다." };
   }
 
   if (!canManage) {
@@ -558,7 +558,7 @@ export async function performCreateMatchInvite(
   const meetingId = formValue(formData, "meetingId");
 
   if (!meetingId) {
-    return { ok: false, code: "missing", message: "모임 정보를 찾지 못했습니다." };
+    return { ok: false, code: "missing", message: "경기 정보를 찾지 못했습니다." };
   }
 
   const { supabase, user } = await getCurrentUserAndTeam();
@@ -703,7 +703,7 @@ export async function performSaveLineup(formData: FormData): Promise<ActionResul
   const playerPayload = normalizeNullableText(formValue(formData, "players"));
 
   if (!meetingId) {
-    return { ok: false, code: "missing", message: "모임 정보를 찾지 못했습니다." };
+    return { ok: false, code: "missing", message: "경기 정보를 찾지 못했습니다." };
   }
 
   const { supabase, user } = await getCurrentUserAndTeam();

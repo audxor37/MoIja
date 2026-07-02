@@ -4,11 +4,13 @@ import {
   ArrowLeft,
   CalendarClock,
   ClipboardCheck,
+  Pencil,
   MapPin,
   Timer,
   Users
 } from "lucide-react";
 import { AttendanceResponsePanel } from "@/components/attendance-response-panel";
+import { DeleteMeetingButton } from "@/components/delete-meeting-button";
 import { MatchCyclePanel, type MatchCyclePlayer } from "@/components/match-cycle-panel";
 import { ManagedAttendancePanel, type ManagedAttendanceMember } from "@/components/managed-attendance-panel";
 import { type AttendanceStatus } from "@/lib/attendance";
@@ -169,7 +171,7 @@ export default async function MeetingDetailPage({
           </Link>
           <div className="min-w-0">
             <span className="inline-flex h-7 items-center rounded-full bg-[#E8F7EE] px-3 text-xs font-bold text-primary">
-              모임 상세
+              경기 상세
             </span>
             <h1 className="mt-2 truncate text-2xl font-bold leading-8 sm:text-[30px] sm:leading-10">{currentMeeting.title}</h1>
           </div>
@@ -181,7 +183,7 @@ export default async function MeetingDetailPage({
               <div className="flex items-start gap-3">
                 <CalendarClock className="mt-0.5 shrink-0 text-strategy" size={20} />
                 <div className="min-w-0">
-                  <h2 className="text-lg font-bold">모임 정보</h2>
+                  <h2 className="text-lg font-bold">경기 정보</h2>
                   <p className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-secondary">
                     {currentMeeting.memo || "운영 메모가 아직 없습니다."}
                   </p>
@@ -193,6 +195,18 @@ export default async function MeetingDetailPage({
                 <InfoRow icon={Users} label="정원" value={currentMeeting.capacity ? `${currentMeeting.capacity}명` : "미정"} />
                 <InfoRow icon={ClipboardCheck} label="신청 마감" value={currentMeeting.attendance_closes_at ? formatMeetingDateTime(currentMeeting.attendance_closes_at) : "마감 미정"} />
               </div>
+              {canManageAttendance ? (
+                <div className="mt-4 flex flex-col gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
+                  <Link
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-surfaceAlt px-4 text-sm font-bold text-secondary transition hover:bg-line"
+                    href={`/meetings/${currentMeeting.id}/edit`}
+                  >
+                    <Pencil size={16} />
+                    수정
+                  </Link>
+                  <DeleteMeetingButton meetingId={currentMeeting.id} redirectTo="/" />
+                </div>
+              ) : null}
             </article>
 
             <AttendanceResponsePanel

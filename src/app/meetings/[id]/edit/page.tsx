@@ -66,7 +66,7 @@ export default async function EditMeetingPage({
           </Link>
           <div>
             <span className="inline-flex h-7 items-center rounded-full bg-[#E8F3FF] px-3 text-xs font-bold text-strategy">
-              모임 수정
+              경기 수정
             </span>
             <h1 className="mt-2 text-[30px] font-bold leading-10">{currentMeeting.title}</h1>
           </div>
@@ -76,10 +76,10 @@ export default async function EditMeetingPage({
           <input name="meetingId" type="hidden" value={currentMeeting.id} />
 
           <section>
-            <SectionHeader eyebrow="기본 정보" title="모임 정보와 운영 메모를 수정합니다" />
+            <SectionHeader eyebrow="기본 정보" title="경기 정보와 운영 메모를 수정합니다" />
             <div className="mt-5 grid gap-4">
               <label className="grid gap-2">
-                <span className="text-sm font-semibold text-secondary">모임 이름</span>
+                <span className="text-sm font-semibold text-secondary">경기 이름</span>
                 <input className="field-input" name="title" defaultValue={currentMeeting.title} required type="text" />
               </label>
               <label className="grid gap-2">

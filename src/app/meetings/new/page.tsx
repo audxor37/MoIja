@@ -40,10 +40,10 @@ export default async function NewMeetingPage() {
             </Link>
             <div>
               <span className="inline-flex h-7 items-center rounded-full bg-[#E8F3FF] px-3 text-xs font-bold text-strategy">
-                모임 생성
+                경기 생성
               </span>
               <h1 className="mt-2 text-[30px] font-bold leading-10">
-                참석 신뢰도를 높이는 모임을 만듭니다
+                참석 신뢰도를 높이는 경기를 만듭니다
               </h1>
             </div>
           </div>
@@ -60,11 +60,11 @@ export default async function NewMeetingPage() {
             <section>
               <SectionHeader
                 eyebrow="기본 정보"
-                title="멤버가 바로 이해할 수 있는 모임 정보를 입력하세요"
+                title="멤버가 바로 이해할 수 있는 경기 정보를 입력하세요"
               />
               <div className="mt-5 grid gap-4">
                 <label className="grid gap-2">
-                  <span className="text-sm font-semibold text-secondary">모임 이름</span>
+                  <span className="text-sm font-semibold text-secondary">경기 이름</span>
                   <input
                     className="field-input"
                     name="title"
@@ -171,7 +171,7 @@ export default async function NewMeetingPage() {
                 type="submit"
               >
                 <Plus size={18} />
-                모임 만들기
+                경기 만들기
               </button>
             </div>
           </form>

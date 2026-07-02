@@ -21,7 +21,7 @@ export default function KakaoLoginPage() {
           카카오로 로그인
         </h1>
         <p className="mt-3 text-center text-base font-semibold leading-7 text-secondary">
-          모임 참석과 알림을 바로 확인하세요.
+          경기 참석과 알림을 바로 확인하세요.
         </p>
 
         <a
