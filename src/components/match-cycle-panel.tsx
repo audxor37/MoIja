@@ -170,28 +170,43 @@ export function MatchCyclePanel({
     onSuccess: (result) => setMessage(result.message)
   });
 
-  function downloadBoardImage() {
-    const svg = buildBoardSvg({ formation, slots: lineupSlots, note: boardNote });
-    const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `moija-lineup-${meetingId}.svg`;
-    link.click();
-    URL.revokeObjectURL(url);
+  async function downloadBoardImage() {
+    try {
+      const svg = buildBoardSvg({ formation, slots: lineupSlots, note: boardNote });
+      const pngBlob = await svgToPngBlob(svg);
+      const url = URL.createObjectURL(pngBlob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `moija-lineup-${meetingId}.png`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setMessage("작전판 이미지 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+    }
   }
 
-  async function copyBoardText() {
-    const text = `${formation} 라인업\n${lineupSlots.map((slot) => `${slot.positionCode} ${slot.displayName ?? "미배정"}`).join("\n")}`;
-    await navigator.clipboard.writeText(text);
-    setMessage("라인업 텍스트를 복사했습니다. 이미지는 다운로드 버튼으로 저장할 수 있습니다.");
+  async function copyBoardImage() {
+    if (!("ClipboardItem" in window) || !navigator.clipboard?.write) {
+      setMessage("이 브라우저는 이미지 복사를 지원하지 않습니다. 이미지 버튼으로 저장해 주세요.");
+      return;
+    }
+
+    try {
+      const svg = buildBoardSvg({ formation, slots: lineupSlots, note: boardNote });
+      const pngBlob = await svgToPngBlob(svg);
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })]);
+      setMessage("작전판 이미지를 복사했습니다.");
+    } catch {
+      setMessage("이미지 복사에 실패했습니다. 이미지 버튼으로 저장해 주세요.");
+    }
   }
 
   return (
-    <article className="rounded-2xl bg-white p-4 shadow-card sm:p-6">
+    <article className="min-w-0 rounded-2xl bg-white p-4 shadow-card sm:p-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-xl font-bold">경기 운영 사이클</h2>
-          <p className="mt-2 text-sm font-semibold leading-6 text-secondary">
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold">경기 운영 사이클</h2>
+          <p className="mt-1 text-sm font-semibold leading-5 text-secondary">
             용병, 라인업, 작전판 공유, 경기 기록을 참석자 기준으로 관리합니다.
           </p>
         </div>
@@ -217,10 +232,10 @@ export function MatchCyclePanel({
 
       {canManageLineup && activeSection === "lineup" ? (
         <section className="mt-4 grid gap-4">
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {FORMATION_PRESETS.map((presetOption) => (
               <button
-                className={`h-10 shrink-0 rounded-lg px-3 text-sm font-bold ${formation === presetOption.code ? "bg-primary text-white" : "bg-surfaceAlt text-secondary"}`}
+                className={`h-10 min-w-0 rounded-lg px-2 text-sm font-bold ${formation === presetOption.code ? "bg-primary text-white" : "bg-surfaceAlt text-secondary"}`}
                 key={presetOption.code}
                 onClick={() => {
                   setFormation(presetOption.code);
@@ -233,13 +248,14 @@ export function MatchCyclePanel({
             ))}
           </div>
           <input className="field-input" value={boardNote} onChange={(event) => setBoardNote(event.target.value)} placeholder="작전 메모" />
-          <div ref={boardRef} className="relative aspect-[4/3] min-h-[320px] touch-none overflow-hidden rounded-xl bg-[#166534] text-white">
+          <div ref={boardRef} className="relative aspect-[4/3] w-full max-w-full touch-none overflow-hidden rounded-xl bg-[#166534] text-white">
             <div className="absolute inset-4 rounded-lg border-2 border-white/55" />
             <div className="absolute inset-x-4 top-1/2 border-t border-white/35" />
             <div className="absolute left-1/2 top-1/2 size-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/30" />
+            <div className="absolute bottom-4 left-1/2 h-[18%] w-[34%] -translate-x-1/2 rounded-t-lg border-x border-t border-white/35" />
             {lineupSlots.map((slot) => (
               <button
-                className={`absolute grid min-h-12 w-20 -translate-x-1/2 -translate-y-1/2 cursor-grab place-items-center rounded-full px-2 text-center text-[11px] font-black leading-tight shadow-soft active:cursor-grabbing ${slot.displayName ? "bg-white text-primary" : "border border-dashed border-white/80 bg-white/15 text-white"}`}
+                className={`absolute grid min-h-9 w-14 max-w-[18%] -translate-x-1/2 -translate-y-1/2 cursor-grab place-items-center rounded-full px-1 text-center text-[10px] font-black leading-tight shadow-soft active:cursor-grabbing sm:min-h-12 sm:w-20 sm:px-2 sm:text-[11px] ${slot.displayName ? "bg-white text-primary" : "border border-dashed border-white/80 bg-white/15 text-white"}`}
                 key={slot.id}
                 onPointerDown={(event) => {
                   event.currentTarget.setPointerCapture(event.pointerId);
@@ -251,7 +267,7 @@ export function MatchCyclePanel({
                 style={{ left: `${slot.xPercent}%`, top: `${slot.yPercent}%` }}
                 type="button"
               >
-                <span className={slot.displayName ? "text-[10px] text-secondary" : "text-[10px] text-white/90"}>{slot.positionCode}</span>
+                <span className={slot.displayName ? "text-[9px] text-secondary sm:text-[10px]" : "text-[9px] text-white/90 sm:text-[10px]"}>{slot.positionCode}</span>
                 <span className="max-w-full truncate">{slot.displayName ?? "미배정"}</span>
               </button>
             ))}
@@ -265,7 +281,7 @@ export function MatchCyclePanel({
                     <p className="truncate text-xs font-semibold text-muted">{slot.positionLabel}</p>
                   </div>
                   <select
-                    className="h-9 rounded-lg border border-line bg-white px-2 text-xs font-bold"
+                    className="h-9 min-w-0 max-w-[50%] rounded-lg border border-line bg-white px-2 text-xs font-bold"
                     value={slot.playerId ?? ""}
                     onChange={(event) => {
                       assignPlayerToSlot(setLineupSlots, slot.id, event.target.value, playablePlayers);
@@ -282,10 +298,10 @@ export function MatchCyclePanel({
               </div>
             ))}
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button className="inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-bold text-white" onClick={() => lineupMutation.mutate()} type="button"><Save size={16} /> 저장</button>
-            <button className="inline-flex h-11 items-center gap-2 rounded-lg bg-surfaceAlt px-4 text-sm font-bold text-secondary" onClick={copyBoardText} type="button"><Clipboard size={16} /> 복사</button>
-            <button className="inline-flex h-11 items-center gap-2 rounded-lg bg-surfaceAlt px-4 text-sm font-bold text-secondary" onClick={downloadBoardImage} type="button"><Download size={16} /> 이미지</button>
+          <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
+            <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-2 text-sm font-bold text-white sm:gap-2 sm:px-4" onClick={() => lineupMutation.mutate()} type="button"><Save size={16} /> 저장</button>
+            <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-surfaceAlt px-2 text-sm font-bold text-secondary sm:gap-2 sm:px-4" onClick={copyBoardImage} type="button"><Clipboard size={16} /> 복사</button>
+            <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-surfaceAlt px-2 text-sm font-bold text-secondary sm:gap-2 sm:px-4" onClick={downloadBoardImage} type="button"><Download size={16} /> 이미지</button>
           </div>
         </section>
       ) : null}
@@ -400,6 +416,40 @@ function buildRecordPayload(players: MatchCyclePlayer[]) {
   }));
 }
 
+async function svgToPngBlob(svg: string) {
+  const svgUrl = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml;charset=utf-8" }));
+
+  try {
+    const image = new Image();
+    image.decoding = "async";
+    image.src = svgUrl;
+    await image.decode();
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 800;
+    canvas.height = 600;
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      throw new Error("canvas_unavailable");
+    }
+
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    return await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) {
+          resolve(blob);
+        } else {
+          reject(new Error("png_blob_unavailable"));
+        }
+      }, "image/png");
+    });
+  } finally {
+    URL.revokeObjectURL(svgUrl);
+  }
+}
+
 function buildBoardSvg({ formation, slots, note }: { formation: string; slots: LineupSlotState[]; note: string }) {
   const playerNodes = slots
     .map((slot) => {
@@ -410,7 +460,7 @@ function buildBoardSvg({ formation, slots, note }: { formation: string; slots: L
     })
     .join("");
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600"><rect width="800" height="600" fill="#166534"/><rect x="40" y="40" width="720" height="520" fill="none" stroke="white" stroke-opacity=".65" stroke-width="4"/><line x1="400" y1="40" x2="400" y2="560" stroke="white" stroke-opacity=".35" stroke-width="3"/><text x="50" y="30" font-size="22" font-weight="800" fill="#0f172a">${escapeSvg(formation)} ${escapeSvg(note)}</text>${playerNodes}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600"><rect width="800" height="600" rx="36" fill="#166534"/><rect x="40" y="40" width="720" height="520" rx="18" fill="none" stroke="white" stroke-opacity=".55" stroke-width="4"/><line x1="40" y1="300" x2="760" y2="300" stroke="white" stroke-opacity=".35" stroke-width="3"/><circle cx="400" cy="300" r="60" fill="none" stroke="white" stroke-opacity=".3" stroke-width="3"/><path d="M264 560V452H536V560" fill="none" stroke="white" stroke-opacity=".35" stroke-width="3"/><text x="50" y="30" font-size="22" font-weight="800" fill="#0f172a">${escapeSvg(formation)} ${escapeSvg(note)}</text>${playerNodes}</svg>`;
 }
 
 function assignPlayerToSlot(

@@ -11,6 +11,11 @@
   box-sizing: border-box;
 }
 
+html {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   background: #f8fafc;
@@ -23,6 +28,8 @@ body {
     system-ui,
     sans-serif;
   font-variant-numeric: tabular-nums;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 button,
