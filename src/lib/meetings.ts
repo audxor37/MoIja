@@ -92,17 +92,17 @@ export function validateMeetingInput(input: MeetingInput): MeetingInputResult {
     : "manual";
 
   if (!title) {
-    return { ok: false, message: "모임 이름을 입력해 주세요." };
+    return { ok: false, message: "경기 이름을 입력해 주세요." };
   }
 
   if (!startsOn || !startsAtTime) {
-    return { ok: false, message: "모임 날짜와 시간을 입력해 주세요." };
+    return { ok: false, message: "경기 날짜와 시간을 입력해 주세요." };
   }
 
   const startsAt = new Date(`${startsOn}T${startsAtTime}:00+09:00`);
 
   if (Number.isNaN(startsAt.getTime())) {
-    return { ok: false, message: "모임 날짜와 시간을 다시 확인해 주세요." };
+    return { ok: false, message: "경기 날짜와 시간을 다시 확인해 주세요." };
   }
 
   const attendanceClosesAt = new Date(startsAt.getTime() - deadlineHours * 60 * 60 * 1000);

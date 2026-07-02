@@ -1,12 +1,22 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { performDeleteMeeting } from "@/app/meetings/actions";
 import { queryKeys } from "@/lib/query-keys";
 import { useToast } from "@/components/toast-provider";
 
-export function DeleteMeetingButton({ meetingId, onDeleted }: { meetingId: string; onDeleted?: (meetingId: string) => void }) {
+export function DeleteMeetingButton({
+  meetingId,
+  onDeleted,
+  redirectTo
+}: {
+  meetingId: string;
+  onDeleted?: (meetingId: string) => void;
+  redirectTo?: string;
+}) {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const showToast = useToast();
 
@@ -23,10 +33,13 @@ export function DeleteMeetingButton({ meetingId, onDeleted }: { meetingId: strin
         onDeleted?.(result.data.meetingId);
         void queryClient.invalidateQueries({ queryKey: queryKeys.events(result.data.teamId) });
         void queryClient.invalidateQueries({ queryKey: queryKeys.dashboardSession });
+        if (redirectTo) {
+          router.push(redirectTo);
+        }
       }
     },
     onError: () => {
-      showToast({ message: "모임 삭제에 실패했습니다.", tone: "error" });
+      showToast({ message: "경기 삭제에 실패했습니다.", tone: "error" });
     }
   });
 

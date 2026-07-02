@@ -28,7 +28,7 @@ const responseOptions = [
   {
     status: "absent",
     label: "불참",
-    description: "이번 모임 불참",
+    description: "이번 경기 불참",
     tone: "bg-surfaceAlt text-secondary hover:bg-line"
   }
 ] as const;

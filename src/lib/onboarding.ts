@@ -58,7 +58,7 @@ export function mapGuestInviteRpcError(error: { code?: string; message?: string 
 }
 
 export function getInviteJoinSuccessMessage(kind: InviteJoinKind) {
-  return kind === "guest" ? "용병으로 경기 참석이 확정되었습니다." : "모임에 가입했습니다.";
+  return kind === "guest" ? "용병으로 경기 참석이 확정되었습니다." : "팀에 가입했습니다.";
 }
 
 export function validateOrganizerTeamInput(input: OrganizerTeamInput): OrganizerTeamResult {
