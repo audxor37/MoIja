@@ -12,6 +12,7 @@ import {
 } from "@/app/meetings/actions";
 import {
   FORMATION_PRESETS,
+  getBoardImageFileName,
   getBoardImageSaveFallback,
   getDefaultLineupSlots,
   getFormationPreset,
@@ -20,6 +21,7 @@ import {
   type LineupSlot
 } from "@/lib/match-cycle";
 import { queryKeys } from "@/lib/query-keys";
+import { useToast } from "@/components/toast-provider";
 
 export type MatchCyclePlayer = {
   id: string;
@@ -59,9 +61,11 @@ export function MatchCyclePanel({
   initialInvites,
   initialPlayers,
   initialLineup,
-  initialRecord
+  initialRecord,
+  meetingTitle
 }: {
   meetingId: string;
+  meetingTitle: string;
   canManageGuests: boolean;
   canManageLineup: boolean;
   canManageRecord: boolean;
@@ -71,14 +75,13 @@ export function MatchCyclePanel({
   initialRecord: MatchRecordValue | null;
 }) {
   const queryClient = useQueryClient();
+  const showToast = useToast();
   const boardRef = useRef<HTMLDivElement | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [invites, setInvites] = useState(initialInvites);
   const [players, setPlayers] = useState(initialPlayers);
   const [activeSection, setActiveSection] = useState<"lineup" | "guests" | "record">("lineup");
   const [formation, setFormation] = useState(getFormationPreset(initialLineup?.formation ?? initialRecord?.formation ?? "4-4-2").code);
   const [boardNote, setBoardNote] = useState(initialLineup?.boardNote ?? "");
-  const [showBoardSavePrompt, setShowBoardSavePrompt] = useState(false);
 
   const playablePlayers = useMemo(
     () => players.filter((player) => ["attending", "accepted", "confirmed"].includes(player.status)),
@@ -96,7 +99,7 @@ export function MatchCyclePanel({
       return performCreateMatchInvite(formData);
     },
     onSuccess: (result) => {
-      setMessage(result.message);
+      showToast({ message: result.message, tone: result.ok ? "success" : "error" });
       if (result.ok) {
         setInvites((current) => [
           { id: result.data.inviteCode, code: result.data.inviteCode, expiresAt: null, usedCount: 0, maxUses: null },
@@ -114,7 +117,7 @@ export function MatchCyclePanel({
       return performAddGuestToMatch(formData);
     },
     onSuccess: (result, displayName) => {
-      setMessage(result.message);
+      showToast({ message: result.message, tone: result.ok ? "success" : "error" });
       if (result.ok) {
         setPlayers((current) => [
           ...current,
@@ -142,7 +145,7 @@ export function MatchCyclePanel({
       return performUpdateGuestAttendance(formData);
     },
     onSuccess: (result) => {
-      setMessage(result.message);
+      showToast({ message: result.message, tone: result.ok ? "success" : "error" });
       if (result.ok) {
         setPlayers((current) =>
           current.map((player) =>
@@ -163,7 +166,7 @@ export function MatchCyclePanel({
       return performSaveLineup(formData);
     },
     onSuccess: (result) => {
-      setMessage(result.message);
+      showToast({ message: result.message, tone: result.ok ? "success" : "error" });
       void queryClient.invalidateQueries({ queryKey: queryKeys.attendances(meetingId) });
     }
   });
@@ -176,73 +179,63 @@ export function MatchCyclePanel({
       formData.set("playerRecords", JSON.stringify(buildRecordPayload(playablePlayers)));
       return performSaveMatchRecord(formData);
     },
-    onSuccess: (result) => setMessage(result.message)
+    onSuccess: (result) => showToast({ message: result.message, tone: result.ok ? "success" : "error" })
   });
 
   async function downloadBoardImage() {
     try {
       const pngBlob = await createBoardPngBlob({ formation, slots: lineupSlots, note: boardNote });
-      downloadBlob(pngBlob, getBoardImageFileName(meetingId));
+      downloadBlob(pngBlob, getBoardImageFileName(meetingTitle));
+      showToast({ message: "라인업 이미지를 저장했습니다." });
     } catch {
-      setMessage("작전판 이미지 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
-    }
-  }
-
-  async function copyBoardImage() {
-    if (!("ClipboardItem" in window) || !navigator.clipboard?.write) {
-      guideBoardImageSave();
-      return;
-    }
-
-    try {
-      const pngBlob = await createBoardPngBlob({ formation, slots: lineupSlots, note: boardNote });
-      await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })]);
-      setShowBoardSavePrompt(false);
-      setMessage("작전판 이미지를 복사했습니다.");
-    } catch {
-      guideBoardImageSave();
+      showToast({ message: "라인업 이미지 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.", tone: "error" });
     }
   }
 
   async function saveBoardImageToPhotos() {
     try {
       const pngBlob = await createBoardPngBlob({ formation, slots: lineupSlots, note: boardNote });
-      const file = new File([pngBlob], getBoardImageFileName(meetingId), { type: "image/png" });
-
-      if (canShareBoardImage(file)) {
-        await navigator.share({
-          files: [file],
-          title: "MoIja 작전판"
-        });
-        setMessage("공유 시트에서 이미지 저장을 선택해 주세요.");
-        return;
+      if ("ClipboardItem" in window && navigator.clipboard?.write) {
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })]);
+          showToast({ message: "라인업 이미지를 복사했습니다." });
+          return;
+        } catch {
+          await saveBoardImageWithFallback(pngBlob);
+          return;
+        }
       }
 
-      const fallback = getBoardImageSaveFallback({
-        userAgent: navigator.userAgent,
-        canShareFiles: false
-      });
-
-      if (fallback.primaryAction === "open") {
-        openBlobInNewTab(pngBlob);
-      } else {
-        downloadBlob(pngBlob, file.name);
-      }
-
-      setMessage(fallback.message);
+      await saveBoardImageWithFallback(pngBlob);
     } catch {
-      setMessage("작전판 이미지 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      showToast({ message: "라인업 이미지 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.", tone: "error" });
     }
   }
 
-  function guideBoardImageSave() {
+  async function saveBoardImageWithFallback(pngBlob: Blob) {
+    const file = new File([pngBlob], getBoardImageFileName(meetingTitle), { type: "image/png" });
+
+    if (canShareBoardImage(file)) {
+      await navigator.share({
+        files: [file],
+        title: "MoIja 라인업"
+      });
+      showToast({ message: "공유 시트에서 이미지 저장을 선택해 주세요." });
+      return;
+    }
+
     const fallback = getBoardImageSaveFallback({
       userAgent: navigator.userAgent,
-      canShareFiles: canShareBoardImage()
+      canShareFiles: false
     });
 
-    setShowBoardSavePrompt(true);
-    setMessage(fallback.message);
+    if (fallback.primaryAction === "open") {
+      openBlobInNewTab(pngBlob);
+    } else {
+      downloadBlob(pngBlob, file.name);
+    }
+
+    showToast({ message: fallback.message });
   }
 
   return (
@@ -251,15 +244,14 @@ export function MatchCyclePanel({
         <div className="min-w-0">
           <h2 className="text-lg font-bold">경기 운영 사이클</h2>
           <p className="mt-1 text-sm font-semibold leading-5 text-secondary">
-            용병, 라인업, 작전판 공유, 경기 기록을 참석자 기준으로 관리합니다.
+            용병, 라인업, 라인업 공유, 경기 기록을 참석자 기준으로 관리합니다.
           </p>
         </div>
-        {message ? <span className="rounded-xl bg-[#F0FBF3] px-3 py-2 text-xs font-bold text-primary">{message}</span> : null}
       </div>
 
       <div className="mt-5 grid grid-cols-3 gap-2 rounded-xl bg-surfaceAlt p-1">
         {[
-          ["lineup", "작전판"],
+          ["lineup", "라인업"],
           ["guests", "용병"],
           ["record", "기록"]
         ].map(([value, label]) => (
@@ -344,10 +336,7 @@ export function MatchCyclePanel({
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-2 text-sm font-bold text-white sm:gap-2 sm:px-4" onClick={() => lineupMutation.mutate()} type="button"><Save size={16} /> 저장</button>
-            <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-surfaceAlt px-2 text-sm font-bold text-secondary sm:gap-2 sm:px-4" onClick={copyBoardImage} type="button"><Clipboard size={16} /> 복사</button>
-            {showBoardSavePrompt ? (
-              <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-2 text-sm font-bold text-white sm:gap-2 sm:px-4" onClick={saveBoardImageToPhotos} type="button"><Download size={16} /> 사진첩 저장</button>
-            ) : null}
+            <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-surfaceAlt px-2 text-sm font-bold text-secondary sm:gap-2 sm:px-4" onClick={saveBoardImageToPhotos} type="button"><Download size={16} /> 라인업 복사</button>
             <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-surfaceAlt px-2 text-sm font-bold text-secondary sm:gap-2 sm:px-4" onClick={downloadBoardImage} type="button"><Download size={16} /> 이미지</button>
           </div>
         </section>
@@ -380,7 +369,20 @@ export function MatchCyclePanel({
             {invites.map((invite) => (
               <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-sm font-bold" key={invite.id}>
                 <span>{invite.code}</span>
-                <button className="text-secondary" onClick={() => navigator.clipboard.writeText(invite.code)} type="button"><Clipboard size={16} /></button>
+                <button
+                  className="text-secondary"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(invite.code);
+                      showToast({ message: "초대 코드를 복사했습니다." });
+                    } catch {
+                      showToast({ message: "초대 코드 복사에 실패했습니다.", tone: "error" });
+                    }
+                  }}
+                  type="button"
+                >
+                  <Clipboard size={16} />
+                </button>
               </div>
             ))}
           </div>
@@ -500,10 +502,6 @@ async function svgToPngBlob(svg: string) {
 function createBoardPngBlob({ formation, slots, note }: { formation: string; slots: LineupSlotState[]; note: string }) {
   const svg = buildBoardSvg({ formation, slots, note });
   return svgToPngBlob(svg);
-}
-
-function getBoardImageFileName(meetingId: string) {
-  return `moija-lineup-${meetingId}.png`;
 }
 
 function canShareBoardImage(file?: File) {

@@ -10,6 +10,7 @@ import {
   getDefaultLineupSlots,
   getPositionLabel,
   getBoardImageSaveFallback,
+  getBoardImageFileName,
   validateGuestOperatorStatus,
   validateGuestResponseStatus,
   validateMatchResult
@@ -144,4 +145,10 @@ test("guides mobile board image save by OS capability", () => {
       message: "복사가 제한된 환경입니다. 이미지 다운로드로 저장해 주세요."
     }
   );
+});
+
+test("builds safe Korean lineup image filenames from meeting titles", () => {
+  assert.equal(getBoardImageFileName("목요 풋살"), "목요 풋살_라인업.png");
+  assert.equal(getBoardImageFileName("강남/서초: 친선전?"), "강남_서초_ 친선전_라인업.png");
+  assert.equal(getBoardImageFileName("  "), "moija-lineup_라인업.png");
 });

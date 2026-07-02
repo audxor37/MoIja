@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AppQueryProvider } from "@/components/query-provider";
 import { RouteQueryInvalidator } from "@/components/route-query-invalidator";
+import { ToastProvider } from "@/components/toast-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,10 +19,12 @@ export default function RootLayout({
     <html lang="ko">
       <body>
         <AppQueryProvider>
-          <Suspense fallback={null}>
-            <RouteQueryInvalidator />
-          </Suspense>
-          {children}
+          <ToastProvider>
+            <Suspense fallback={null}>
+              <RouteQueryInvalidator />
+            </Suspense>
+            {children}
+          </ToastProvider>
         </AppQueryProvider>
       </body>
     </html>
