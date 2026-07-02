@@ -1,7 +1,12 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { validateJoinTeamInput, validateOrganizerTeamInput } from "@/lib/onboarding";
+import {
+  getInviteJoinSuccessMessage,
+  mapGuestInviteRpcError,
+  validateJoinTeamInput,
+  validateOrganizerTeamInput
+} from "@/lib/onboarding";
 import { upsertOwnProfile } from "@/lib/supabase/profile";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -101,9 +106,17 @@ export async function joinTeamByInvite(formData: FormData) {
     input_invite_code: input.inviteCode
   });
 
-  if (error) {
-    redirectWithError("join");
+  if (!error) {
+    redirectWithMessage(getInviteJoinSuccessMessage("team"));
   }
 
-  redirect("/");
+  const { error: guestInviteError } = await supabase.rpc("join_match_by_guest_invite_code", {
+    input_invite_code: input.inviteCode
+  });
+
+  if (guestInviteError) {
+    redirectWithError(mapGuestInviteRpcError(guestInviteError) as keyof typeof errorParams);
+  }
+
+  redirectWithMessage(getInviteJoinSuccessMessage("guest"));
 }

@@ -226,6 +226,7 @@ export async function createMeeting(formData: FormData) {
     if (!fallbackError) {
       if (fallbackMeeting?.id) {
         await createDefaultMemberAttendances(supabase, team.id, fallbackMeeting.id);
+        await createDefaultMatchInvite(supabase, fallbackMeeting.id, user.id);
       }
       revalidatePath("/");
       redirectWithMeetingMessage("모임을 만들었습니다.");
@@ -242,6 +243,7 @@ export async function createMeeting(formData: FormData) {
 
   if (createdMeeting?.id) {
     await createDefaultMemberAttendances(supabase, team.id, createdMeeting.id);
+    await createDefaultMatchInvite(supabase, createdMeeting.id, user.id);
   }
 
   revalidatePath("/");
@@ -268,6 +270,22 @@ async function createDefaultMemberAttendances(
 
   if (error) {
     console.error("[meetings:create] Default attendance insert failed.", error);
+  }
+}
+
+async function createDefaultMatchInvite(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  meetingId: string,
+  createdBy: string
+) {
+  const { error } = await supabase.from("match_invites").insert({
+    match_id: meetingId,
+    created_by: createdBy,
+    default_status: "confirmed"
+  });
+
+  if (error) {
+    console.error("[meetings:create] Default match invite insert failed.", error);
   }
 }
 
@@ -560,7 +578,7 @@ export async function performCreateMatchInvite(
     match_id: meetingId,
     code: inviteCode,
     created_by: user.id,
-    default_status: "invited"
+    default_status: "confirmed"
   });
 
   if (error) {
