@@ -10,7 +10,15 @@ import {
   performSaveMatchRecord,
   performUpdateGuestAttendance
 } from "@/app/meetings/actions";
-import { FORMATION_PRESETS, getDefaultLineupSlots, getFormationPreset, guestStatusLabel, playerKindLabel, type LineupSlot } from "@/lib/match-cycle";
+import {
+  FORMATION_PRESETS,
+  getBoardImageSaveFallback,
+  getDefaultLineupSlots,
+  getFormationPreset,
+  guestStatusLabel,
+  playerKindLabel,
+  type LineupSlot
+} from "@/lib/match-cycle";
 import { queryKeys } from "@/lib/query-keys";
 
 export type MatchCyclePlayer = {
@@ -70,6 +78,7 @@ export function MatchCyclePanel({
   const [activeSection, setActiveSection] = useState<"lineup" | "guests" | "record">("lineup");
   const [formation, setFormation] = useState(getFormationPreset(initialLineup?.formation ?? initialRecord?.formation ?? "4-4-2").code);
   const [boardNote, setBoardNote] = useState(initialLineup?.boardNote ?? "");
+  const [showBoardSavePrompt, setShowBoardSavePrompt] = useState(false);
 
   const playablePlayers = useMemo(
     () => players.filter((player) => ["attending", "accepted", "confirmed"].includes(player.status)),
@@ -172,14 +181,8 @@ export function MatchCyclePanel({
 
   async function downloadBoardImage() {
     try {
-      const svg = buildBoardSvg({ formation, slots: lineupSlots, note: boardNote });
-      const pngBlob = await svgToPngBlob(svg);
-      const url = URL.createObjectURL(pngBlob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `moija-lineup-${meetingId}.png`;
-      link.click();
-      URL.revokeObjectURL(url);
+      const pngBlob = await createBoardPngBlob({ formation, slots: lineupSlots, note: boardNote });
+      downloadBlob(pngBlob, getBoardImageFileName(meetingId));
     } catch {
       setMessage("작전판 이미지 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
     }
@@ -187,18 +190,59 @@ export function MatchCyclePanel({
 
   async function copyBoardImage() {
     if (!("ClipboardItem" in window) || !navigator.clipboard?.write) {
-      setMessage("이 브라우저는 이미지 복사를 지원하지 않습니다. 이미지 버튼으로 저장해 주세요.");
+      guideBoardImageSave();
       return;
     }
 
     try {
-      const svg = buildBoardSvg({ formation, slots: lineupSlots, note: boardNote });
-      const pngBlob = await svgToPngBlob(svg);
+      const pngBlob = await createBoardPngBlob({ formation, slots: lineupSlots, note: boardNote });
       await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })]);
+      setShowBoardSavePrompt(false);
       setMessage("작전판 이미지를 복사했습니다.");
     } catch {
-      setMessage("이미지 복사에 실패했습니다. 이미지 버튼으로 저장해 주세요.");
+      guideBoardImageSave();
     }
+  }
+
+  async function saveBoardImageToPhotos() {
+    try {
+      const pngBlob = await createBoardPngBlob({ formation, slots: lineupSlots, note: boardNote });
+      const file = new File([pngBlob], getBoardImageFileName(meetingId), { type: "image/png" });
+
+      if (canShareBoardImage(file)) {
+        await navigator.share({
+          files: [file],
+          title: "MoIja 작전판"
+        });
+        setMessage("공유 시트에서 이미지 저장을 선택해 주세요.");
+        return;
+      }
+
+      const fallback = getBoardImageSaveFallback({
+        userAgent: navigator.userAgent,
+        canShareFiles: false
+      });
+
+      if (fallback.primaryAction === "open") {
+        openBlobInNewTab(pngBlob);
+      } else {
+        downloadBlob(pngBlob, file.name);
+      }
+
+      setMessage(fallback.message);
+    } catch {
+      setMessage("작전판 이미지 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+    }
+  }
+
+  function guideBoardImageSave() {
+    const fallback = getBoardImageSaveFallback({
+      userAgent: navigator.userAgent,
+      canShareFiles: canShareBoardImage()
+    });
+
+    setShowBoardSavePrompt(true);
+    setMessage(fallback.message);
   }
 
   return (
@@ -298,9 +342,12 @@ export function MatchCyclePanel({
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-2 text-sm font-bold text-white sm:gap-2 sm:px-4" onClick={() => lineupMutation.mutate()} type="button"><Save size={16} /> 저장</button>
             <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-surfaceAlt px-2 text-sm font-bold text-secondary sm:gap-2 sm:px-4" onClick={copyBoardImage} type="button"><Clipboard size={16} /> 복사</button>
+            {showBoardSavePrompt ? (
+              <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-2 text-sm font-bold text-white sm:gap-2 sm:px-4" onClick={saveBoardImageToPhotos} type="button"><Download size={16} /> 사진첩 저장</button>
+            ) : null}
             <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-surfaceAlt px-2 text-sm font-bold text-secondary sm:gap-2 sm:px-4" onClick={downloadBoardImage} type="button"><Download size={16} /> 이미지</button>
           </div>
         </section>
@@ -448,6 +495,51 @@ async function svgToPngBlob(svg: string) {
   } finally {
     URL.revokeObjectURL(svgUrl);
   }
+}
+
+function createBoardPngBlob({ formation, slots, note }: { formation: string; slots: LineupSlotState[]; note: string }) {
+  const svg = buildBoardSvg({ formation, slots, note });
+  return svgToPngBlob(svg);
+}
+
+function getBoardImageFileName(meetingId: string) {
+  return `moija-lineup-${meetingId}.png`;
+}
+
+function canShareBoardImage(file?: File) {
+  if (!navigator.share || !navigator.canShare) {
+    return false;
+  }
+
+  if (file) {
+    return navigator.canShare({ files: [file] });
+  }
+
+  try {
+    const probeFile = new File([""], "moija-lineup.png", { type: "image/png" });
+    return navigator.canShare({ files: [probeFile] });
+  } catch {
+    return false;
+  }
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function openBlobInNewTab(blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 function buildBoardSvg({ formation, slots, note }: { formation: string; slots: LineupSlotState[]; note: string }) {
