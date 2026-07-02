@@ -15,19 +15,19 @@ const responseOptions = [
   {
     status: "attending",
     label: "참석",
-    description: "이 모임에 참석할 예정입니다.",
+    description: "참석 예정",
     tone: "bg-primary text-white hover:bg-[#12843D]"
   },
   {
     status: "waitlisted",
     label: "대기",
-    description: "정원이 차면 대기자로 등록합니다.",
+    description: "정원 초과 시 대기",
     tone: "bg-[#2563EB] text-white hover:bg-[#1D4ED8]"
   },
   {
     status: "absent",
     label: "불참",
-    description: "이번 모임에는 참석하지 않습니다.",
+    description: "이번 모임 불참",
     tone: "bg-surfaceAlt text-secondary hover:bg-line"
   }
 ] as const;
@@ -75,20 +75,20 @@ export function AttendanceResponsePanel({
   );
 
   return (
-    <article className="rounded-2xl bg-white p-5 shadow-card sm:p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold">내 참석 응답</h2>
-          <p className="mt-2 text-sm font-semibold leading-6 text-secondary">
+    <article className="rounded-2xl bg-white p-4 shadow-card sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold">내 참석 응답</h2>
+          <p className="mt-1 text-sm font-semibold leading-5 text-secondary">
             현재 상태는 <span className="text-primary">{attendanceStatusLabel(status)}</span>입니다.
           </p>
         </div>
-        <CheckCircle2 className="shrink-0 text-primary" size={24} />
+        <CheckCircle2 className="shrink-0 text-primary" size={22} />
       </div>
 
       {message ? (
         <div
-          className={`mt-5 rounded-2xl border px-5 py-4 text-sm font-semibold ${
+          className={`mt-4 rounded-xl border px-4 py-3 text-sm font-semibold ${
             messageTone === "success"
               ? "border-[#BEE7C8] bg-[#F0FBF3] text-primary"
               : "border-[#FBD6A3] bg-[#FFF7E8] text-[#8A5200]"
@@ -98,12 +98,12 @@ export function AttendanceResponsePanel({
         </div>
       ) : null}
 
-      <div className="mt-5 grid gap-3 md:grid-cols-3">
+      <div className="mt-4 grid grid-cols-3 gap-2">
         {responseOptions.map((option) => {
           const disabled = mutation.isPending || !canSubmitAttendanceResponse(option.status, allowWaitlist);
           return (
             <button
-              className={`grid min-h-28 w-full content-start gap-2 rounded-2xl px-4 py-4 text-left transition disabled:cursor-not-allowed disabled:opacity-45 ${option.tone} ${
+              className={`grid min-h-20 w-full min-w-0 content-start gap-1 rounded-xl px-3 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-45 sm:min-h-24 sm:px-4 ${option.tone} ${
                 status === option.status ? "ring-4 ring-primary/20" : ""
               }`}
               disabled={disabled}
@@ -111,10 +111,10 @@ export function AttendanceResponsePanel({
               onClick={() => mutation.mutate(option.status)}
               type="button"
             >
-              <span className="text-base font-black">
+              <span className="truncate text-sm font-black sm:text-base">
                 {pendingStatus === option.status ? "저장 중" : option.label}
               </span>
-              <span className="text-sm font-semibold leading-6 opacity-80">{option.description}</span>
+              <span className="text-xs font-semibold leading-4 opacity-80 sm:text-sm sm:leading-5">{option.description}</span>
             </button>
           );
         })}
