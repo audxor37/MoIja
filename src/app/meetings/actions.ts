@@ -803,34 +803,79 @@ export async function performSaveMatchRecord(formData: FormData): Promise<Action
     return { ok: false, code: "permission", message: "경기 기록을 저장할 권한이 필요합니다." };
   }
 
-  const { error } = await supabase.from("match_records").upsert(
-    {
-      match_id: meetingId,
-      result,
-      goals_for: goalsFor,
-      goals_against: goalsAgainst,
-      opponent_name: opponentName,
-      formation,
-      memo,
-      recorded_by: user.id
-    },
-    { onConflict: "match_id" }
-  );
+  const matchRecordInput = {
+    match_id: meetingId,
+    result,
+    goals_for: goalsFor,
+    goals_against: goalsAgainst,
+    opponent_name: opponentName,
+    formation,
+    memo,
+    recorded_by: user.id
+  };
+
+  const { error } = await supabase.from("match_records").upsert(matchRecordInput, { onConflict: "match_id" });
 
   if (error) {
-    console.error("[match-record:save] Upsert failed.", error);
-    return { ok: false, code: "save", message: "경기 기록 저장에 실패했습니다." };
+    if (isSchemaColumnError(error)) {
+      const { error: fallbackError } = await supabase
+        .from("match_records")
+        .upsert(
+          {
+            match_id: matchRecordInput.match_id,
+            result: matchRecordInput.result,
+            goals_for: matchRecordInput.goals_for,
+            goals_against: matchRecordInput.goals_against,
+            recorded_by: matchRecordInput.recorded_by
+          },
+          { onConflict: "match_id" }
+        );
+
+      if (fallbackError) {
+        console.error("[match-record:save] Base schema upsert failed.", fallbackError);
+        return { ok: false, code: "save", message: "경기 기록 저장에 실패했습니다." };
+      }
+    } else {
+      console.error("[match-record:save] Upsert failed.", error);
+      return { ok: false, code: "save", message: "경기 기록 저장에 실패했습니다." };
+    }
   }
 
   const playerRecords = playerPayload ? parsePlayerRecords(playerPayload, meetingId) : [];
-  await supabase.from("player_match_records").delete().eq("match_id", meetingId);
+  const { error: deleteError } = await supabase.from("player_match_records").delete().eq("match_id", meetingId);
+
+  if (deleteError) {
+    console.error("[match-record:save] Player delete failed.", deleteError);
+    return { ok: false, code: "save", message: "개인 기록 저장에 실패했습니다." };
+  }
 
   if (playerRecords.length > 0) {
     const { error: playersError } = await supabase.from("player_match_records").insert(playerRecords);
 
     if (playersError) {
-      console.error("[match-record:save] Player insert failed.", playersError);
-      return { ok: false, code: "save", message: "개인 기록 저장에 실패했습니다." };
+      if (isSchemaColumnError(playersError)) {
+        const basePlayerRecords = playerRecords
+          .filter((record) => record.profile_id)
+          .map((record) => ({
+            match_id: record.match_id,
+            profile_id: record.profile_id,
+            goals: record.goals,
+            assists: record.assists,
+            is_mvp: record.is_mvp
+          }));
+
+        const { error: basePlayersError } = basePlayerRecords.length > 0
+          ? await supabase.from("player_match_records").insert(basePlayerRecords)
+          : { error: null };
+
+        if (basePlayersError) {
+          console.error("[match-record:save] Base schema player insert failed.", basePlayersError);
+          return { ok: false, code: "save", message: "개인 기록 저장에 실패했습니다." };
+        }
+      } else {
+        console.error("[match-record:save] Player insert failed.", playersError);
+        return { ok: false, code: "save", message: "개인 기록 저장에 실패했습니다." };
+      }
     }
   }
 
