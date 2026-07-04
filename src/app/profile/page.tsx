@@ -44,6 +44,14 @@ export default async function ProfilePage() {
             <InfoPill label="팀" value={session.team?.name ?? "소속 팀 없음"} />
             <InfoPill label="역할" value={session.team ? teamRoleLabel(session.team.role) : "-"} />
             <InfoPill label="예정 경기" value={`${session.team?.meetings.length ?? 0}개`} />
+            {session.team ? (
+              <>
+                <InfoPill label="신뢰도" value={`${session.team.reliability.score}점`} />
+                <InfoPill label="참석률" value={`${session.team.reliability.attendanceRate}%`} />
+                <InfoPill label="노쇼" value={`${session.team.reliability.noShowCount}회`} />
+                <InfoPill label="연속 참석" value={`${session.team.reliability.currentStreak}회`} />
+              </>
+            ) : null}
           </div>
 
           <form action="/api/auth/signout" className="mt-6" method="post">

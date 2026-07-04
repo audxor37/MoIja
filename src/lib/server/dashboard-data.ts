@@ -7,6 +7,7 @@ import {
   type DashboardMatchRow,
   mapDashboardMeetings
 } from "@/lib/dashboard-session";
+import { calculateReliabilityScore, type ReliabilityScore } from "@/lib/reliability";
 import { isMissingRefreshTokenError } from "@/lib/supabase/auth-error";
 import { getCurrentUserId } from "@/lib/supabase/auth-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -17,6 +18,7 @@ export type TeamSession = {
   role: string;
   inviteCode: string | null;
   meetings: DashboardMeeting[];
+  reliability: ReliabilityScore;
 };
 
 export type DashboardSession = {
@@ -82,14 +84,20 @@ export const getDashboardSession = cache(async function getDashboardSession(): P
 
     const matchRows = (matches ?? fallbackMatches ?? []) as DashboardMatchRow[];
     const matchIds = matchRows.map((match) => match.id);
-    const [{ count: teamMemberCount }, { data: attendanceRows }, { data: myAttendanceRows }] = await Promise.all([
+    const [{ count: teamMemberCount }, { data: attendanceRows }, { data: myAttendanceRows }, { data: reliabilityRows }] = await Promise.all([
       memberCountPromise,
       matchIds.length > 0
         ? supabase.from("match_attendances").select("match_id, status").in("match_id", matchIds)
         : Promise.resolve({ data: [] }),
       matchIds.length > 0
         ? supabase.from("match_attendances").select("match_id, status").eq("profile_id", userId).in("match_id", matchIds)
-        : Promise.resolve({ data: [] })
+        : Promise.resolve({ data: [] }),
+      supabase
+        .from("match_attendances")
+        .select("status, matches!inner(team_id, starts_at)")
+        .eq("profile_id", userId)
+        .eq("matches.team_id", joinedTeam.id)
+        .order("starts_at", { referencedTable: "matches", ascending: false })
     ]);
     const attendanceSummaryByMatchId = new Map<string, DashboardMeeting["attendanceSummary"]>();
     const myAttendanceStatusByMatchId = new Map<string, DashboardMeeting["myAttendanceStatus"]>();
@@ -128,7 +136,8 @@ export const getDashboardSession = cache(async function getDashboardSession(): P
         name: joinedTeam.name,
         role: typedMembership.role,
         inviteCode: joinedTeam.invite_code,
-        meetings
+        meetings,
+        reliability: calculateReliabilityScore((reliabilityRows ?? []) as { status: "attending" | "confirmed" | "absent" | "no_show" }[])
       }
     };
   } catch (error) {
