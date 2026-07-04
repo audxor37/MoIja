@@ -230,6 +230,8 @@ function OperatorDashboard({
 }: {
   team: TeamSession;
 }) {
+  const nextMeeting = team.meetings[0] ?? null;
+
   return (
     <main className="min-h-screen bg-app pb-24 text-ink lg:pb-0">
       <div className="lg:grid lg:min-h-screen lg:grid-cols-[260px_1fr]">
@@ -267,6 +269,29 @@ function OperatorDashboard({
                 </Link>
               </div>
             </section>
+
+            {nextMeeting ? (
+              <section className="mt-5 rounded-2xl bg-navy p-4 text-white shadow-card sm:p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-white/70">다음 경기 운영</p>
+                    <Link className="mt-1 block truncate text-2xl font-bold" href={`/meetings/${nextMeeting.id}`}>
+                      {nextMeeting.title}
+                    </Link>
+                    <p className="mt-2 text-sm font-semibold text-white/70">
+                      미응답 {nextMeeting.attendanceSummary.unansweredCount}명 · 대기 {nextMeeting.attendanceSummary.waitlistedCount}명 · 노쇼 {nextMeeting.attendanceSummary.noShowCount}명
+                    </p>
+                  </div>
+                  <Link
+                    className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-black text-navy"
+                    href={`/meetings/${nextMeeting.id}`}
+                  >
+                    <ClipboardCheck size={17} />
+                    출석 운영
+                  </Link>
+                </div>
+              </section>
+            ) : null}
 
             <section className="mt-5 rounded-2xl bg-white p-4 shadow-card sm:p-5">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -356,9 +381,12 @@ function MemberDashboard({
           </section>
           <section className="rounded-2xl bg-navy p-5 text-white shadow-card">
             <h2 className="text-lg font-bold">참석 신뢰도</h2>
-            <p className="mt-3 text-sm leading-6 text-white/70">
-              참석, 불참, 대기 응답을 경기 전에 남기면 운영자가 정원과 대기 전환을 더 정확히 관리할 수 있습니다.
-            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <ReliabilityPill label="점수" value={`${team.reliability.score}점`} dark />
+              <ReliabilityPill label="참석률" value={`${team.reliability.attendanceRate}%`} dark />
+              <ReliabilityPill label="노쇼" value={`${team.reliability.noShowCount}회`} dark />
+              <ReliabilityPill label="연속 참석" value={`${team.reliability.currentStreak}회`} dark />
+            </div>
           </section>
         </aside>
       </section>
@@ -454,11 +482,22 @@ function MeetingCard({ meeting, selected }: { meeting: DashboardMeeting; selecte
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 text-sm font-semibold text-secondary sm:grid-cols-4">
         <StatusPill label="응답률" value={`${summary.responseRate}%`} />
+        <StatusPill label="참석예정" value={`${summary.attendingCount}명`} />
         <StatusPill label="미응답" value={`${summary.unansweredCount}명`} />
         <StatusPill label="대기" value={`${summary.waitlistedCount}명`} />
+        <StatusPill label="노쇼" value={`${summary.noShowCount}명`} />
         <StatusPill label="확정필요" value={`${summary.confirmationNeededCount}명`} />
       </div>
     </Link>
+  );
+}
+
+function ReliabilityPill({ label, value, dark = false }: { label: string; value: string; dark?: boolean }) {
+  return (
+    <div className={`rounded-xl px-3 py-2 ${dark ? "bg-white/10" : "bg-surfaceAlt"}`}>
+      <span className={`block text-xs ${dark ? "text-white/60" : "text-muted"}`}>{label}</span>
+      <span className={`mt-1 block text-lg font-black ${dark ? "text-white" : "text-ink"}`}>{value}</span>
+    </div>
   );
 }
 

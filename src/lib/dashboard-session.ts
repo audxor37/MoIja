@@ -15,6 +15,9 @@ export type DashboardMeeting = {
   canManage: boolean;
   myAttendanceStatus: AttendanceStatus | null;
   attendanceSummary: {
+    attendingCount: number;
+    absentCount: number;
+    noShowCount: number;
     responseRate: number;
     unansweredCount: number;
     waitlistedCount: number;
@@ -56,6 +59,9 @@ export function mapDashboardMeetings(
     }),
     myAttendanceStatus: myAttendanceStatusByMatchId.get(match.id) ?? null,
     attendanceSummary: attendanceSummaryByMatchId.get(match.id) ?? {
+      attendingCount: 0,
+      absentCount: 0,
+      noShowCount: 0,
       responseRate: 0,
       unansweredCount: 0,
       waitlistedCount: 0,
