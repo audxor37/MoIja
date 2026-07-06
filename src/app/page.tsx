@@ -8,38 +8,34 @@ import {
   MessageCircle,
   Plus,
   ShieldCheck,
+  Siren,
   UserCheck,
   Timer,
-  Trophy,
   UserRoundPlus,
   Users
 } from "lucide-react";
 import Link from "next/link";
 import { createOrganizerTeam, joinTeamByInvite } from "@/app/onboarding/actions";
+import { AttendanceResponsePanel } from "@/components/attendance-response-panel";
 import { DashboardCacheHydrator } from "@/components/dashboard-cache-hydrator";
 import { InviteCodeCopyButton } from "@/components/invite-code-copy-button";
 import { attendanceStatusLabel } from "@/lib/attendance";
 import type { DashboardMeeting } from "@/lib/dashboard-session";
+import { getActiveDashboardNavItems, getReliabilityDisplay, getUpcomingMeetingActions, type DashboardTone } from "@/lib/dashboard-ux";
 import { formatMeetingDateTime } from "@/lib/meetings";
 import { getDashboardSession, type TeamSession } from "@/lib/server/dashboard-data";
 import { canManageTeamRole, teamRoleLabel } from "@/lib/team-management";
 
 export const dynamic = "force-dynamic";
 
-const navItems = [
-  { label: "대시보드", icon: Grid2X2, href: "/", active: true },
-  { label: "경기 생성", icon: CalendarPlus, href: "/meetings/new" },
-  { label: "출석 체크", icon: ClipboardCheck, href: "/" },
-  { label: "팀 관리", icon: Users, href: "/team" }
-];
+const navIconByLabel = {
+  홈: Grid2X2,
+  "새 경기": CalendarPlus,
+  팀: Users,
+  "내 정보": ShieldCheck
+} as const;
 
-const bottomNav = [
-  { label: "홈", icon: Grid2X2, href: "/", active: true },
-  { label: "경기", icon: CalendarPlus, href: "/" },
-  { label: "랭킹", icon: Trophy, href: "/" },
-  { label: "팀", icon: Users, href: "/team" },
-  { label: "내 정보", icon: ShieldCheck, href: "/profile" }
-];
+const activeNavItems = getActiveDashboardNavItems();
 
 export default async function Home() {
   const session = await getDashboardSession();
@@ -238,8 +234,14 @@ function OperatorDashboard({
         <aside className="border-b border-line bg-white px-4 py-3 lg:min-h-screen lg:border-b-0 lg:border-r lg:px-5 lg:py-5">
           <Brand />
           <nav className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:mt-6 lg:grid-cols-1">
-            {navItems.map((item) => (
-              <NavButton key={item.label} {...item} />
+            {activeNavItems.map((item) => (
+              <NavButton
+                key={item.label}
+                active={item.href === "/"}
+                href={item.href}
+                icon={navIconByLabel[item.label]}
+                label={item.label}
+              />
             ))}
           </nav>
         </aside>
@@ -255,7 +257,7 @@ function OperatorDashboard({
                   {team.name} 경기 관리
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-secondary">
-                  경기별 참석 현황을 빠르게 확인하고 상세 화면에서 운영합니다.
+                  다음 경기의 미응답, 대기, 확정 필요 인원을 먼저 확인하고 바로 운영합니다.
                 </p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -272,22 +274,50 @@ function OperatorDashboard({
 
             {nextMeeting ? (
               <section className="mt-5 rounded-2xl bg-navy p-4 text-white shadow-card sm:p-5">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-white/70">다음 경기 운영</p>
+                    <p className="text-sm font-bold text-white/70">오늘/다음 경기 운영</p>
                     <Link className="mt-1 block truncate text-2xl font-bold" href={`/meetings/${nextMeeting.id}`}>
                       {nextMeeting.title}
                     </Link>
                     <p className="mt-2 text-sm font-semibold text-white/70">
-                      미응답 {nextMeeting.attendanceSummary.unansweredCount}명 · 대기 {nextMeeting.attendanceSummary.waitlistedCount}명 · 노쇼 {nextMeeting.attendanceSummary.noShowCount}명
+                      {formatMeetingDateTime(nextMeeting.startsAt)} · {nextMeeting.locationNote ?? "장소 미정"}
                     </p>
                   </div>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 lg:min-w-[520px]">
+                    {getUpcomingMeetingActions(nextMeeting.attendanceSummary).map((action) => (
+                      <Link
+                        className={`min-h-16 rounded-xl px-3 py-2.5 ${operatorActionToneClass(action.tone)}`}
+                        href={`/meetings/${nextMeeting.id}`}
+                        key={action.label}
+                      >
+                        <span className="block text-[11px] font-bold opacity-75">{action.label}</span>
+                        <span className="mt-1 block text-2xl font-black leading-7">{action.value}</span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
                   <Link
-                    className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-black text-navy"
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-black text-navy"
                     href={`/meetings/${nextMeeting.id}`}
                   >
                     <ClipboardCheck size={17} />
                     출석 운영
+                  </Link>
+                  <Link
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white/10 px-5 text-sm font-bold text-white"
+                    href={`/meetings/${nextMeeting.id}`}
+                  >
+                    <Users size={17} />
+                    용병/라인업
+                  </Link>
+                  <Link
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white/10 px-5 text-sm font-bold text-white"
+                    href={`/meetings/${nextMeeting.id}`}
+                  >
+                    <Siren size={17} />
+                    노쇼 처리
                   </Link>
                 </div>
               </section>
@@ -328,6 +358,7 @@ function MemberDashboard({
   team: TeamSession;
 }) {
   const nextMeeting = team.meetings[0] ?? null;
+  const reliabilityDisplay = getReliabilityDisplay(team.reliability);
 
   return (
     <main className="min-h-screen bg-app pb-24 text-ink lg:pb-0">
@@ -336,35 +367,35 @@ function MemberDashboard({
           <span className="inline-flex h-7 items-center rounded-full bg-[#E8F3FF] px-3 text-xs font-bold text-strategy">
             {teamRoleLabel(team.role)} 홈
           </span>
-          <h1 className="mt-3 text-[30px] font-bold leading-10">{team.name}의 내 다음 경기</h1>
-          <p className="mt-3 text-sm font-semibold leading-6 text-secondary">
-            참석 신청과 현재 상태를 먼저 확인합니다. 운영 확정과 노쇼 처리는 운영자가 관리합니다.
-          </p>
+          <h1 className="mt-3 text-[30px] font-bold leading-10">{team.name}의 내 다음 행동</h1>
           {nextMeeting ? (
-            <article className="mt-6 rounded-2xl border border-primary bg-[#F8FEFA] p-5">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="text-sm font-bold text-primary">다음 경기</p>
-                  <Link className="mt-1 block text-2xl font-bold hover:text-primary" href={`/meetings/${nextMeeting.id}`}>
-                    {nextMeeting.title}
-                  </Link>
-                  <p className="mt-3 text-sm font-semibold text-secondary">
-                    {formatMeetingDateTime(nextMeeting.startsAt)} · {nextMeeting.locationNote ?? "장소 미정"}
-                  </p>
+            <div className="mt-6 grid gap-4">
+              <article className="rounded-2xl border border-primary bg-[#F8FEFA] p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-sm font-bold text-primary">다음 경기</p>
+                    <Link className="mt-1 block text-2xl font-bold hover:text-primary" href={`/meetings/${nextMeeting.id}`}>
+                      {nextMeeting.title}
+                    </Link>
+                    <p className="mt-3 text-sm font-semibold text-secondary">
+                      {formatMeetingDateTime(nextMeeting.startsAt)} · {nextMeeting.locationNote ?? "장소 미정"}
+                    </p>
+                    <p className="mt-2 text-xs font-bold text-muted">
+                      {nextMeeting.attendanceClosesAt ? `${formatMeetingDateTime(nextMeeting.attendanceClosesAt)} 마감` : "마감 미정"}
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit items-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-bold text-secondary">
+                    <UserCheck size={16} />
+                    {attendanceStatusLabel(nextMeeting.myAttendanceStatus)}
+                  </span>
                 </div>
-                <span className="inline-flex w-fit items-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-bold text-secondary">
-                  <UserCheck size={16} />
-                  {attendanceStatusLabel(nextMeeting.myAttendanceStatus)}
-                </span>
-              </div>
-              <Link
-                className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-white sm:w-auto"
-                href={`/meetings/${nextMeeting.id}`}
-              >
-                <ClipboardCheck size={17} />
-                참석 상태 변경
-              </Link>
-            </article>
+              </article>
+              <AttendanceResponsePanel
+                allowWaitlist={nextMeeting.allowWaitlist}
+                initialStatus={nextMeeting.myAttendanceStatus}
+                meetingId={nextMeeting.id}
+              />
+            </div>
           ) : (
             <EmptyMemberMeetings />
           )}
@@ -380,7 +411,15 @@ function MemberDashboard({
             </div>
           </section>
           <section className="rounded-2xl bg-navy p-5 text-white shadow-card">
-            <h2 className="text-lg font-bold">참석 신뢰도</h2>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold">참석 신뢰도</h2>
+                <p className="mt-1 text-sm font-semibold text-white/60">{reliabilityDisplay.helper}</p>
+              </div>
+              <span className={`rounded-full px-3 py-1 text-xs font-black ${reliabilityToneClass(reliabilityDisplay.tone)}`}>
+                {reliabilityDisplay.label}
+              </span>
+            </div>
             <div className="mt-4 grid grid-cols-2 gap-2">
               <ReliabilityPill label="점수" value={`${team.reliability.score}점`} dark />
               <ReliabilityPill label="참석률" value={`${team.reliability.attendanceRate}%`} dark />
@@ -562,8 +601,11 @@ function InfoRow({
 
 function MobileBottomNav() {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-line bg-white px-2 py-2 shadow-raised lg:hidden">
-      {bottomNav.map(({ label, icon: Icon, href, active }) => (
+    <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t border-line bg-white px-2 py-2 shadow-raised lg:hidden">
+      {activeNavItems.map(({ label, href }) => {
+        const Icon = navIconByLabel[label];
+        const active = href === "/";
+        return (
         <Link
           className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-semibold ${
             active ? "text-primary" : "text-muted"
@@ -574,9 +616,34 @@ function MobileBottomNav() {
           <Icon size={19} />
           {label}
         </Link>
-      ))}
+        );
+      })}
     </nav>
   );
+}
+
+function operatorActionToneClass(tone: DashboardTone) {
+  const classes: Record<DashboardTone, string> = {
+    success: "bg-[#E8F7EE] text-primary",
+    info: "bg-[#E8F3FF] text-strategy",
+    warning: "bg-[#FFF4E5] text-warning",
+    danger: "bg-[#FFF1F1] text-danger",
+    muted: "bg-white/10 text-white"
+  };
+
+  return classes[tone];
+}
+
+function reliabilityToneClass(tone: DashboardTone) {
+  const classes: Record<DashboardTone, string> = {
+    success: "bg-[#E8F7EE] text-primary",
+    info: "bg-[#E8F3FF] text-strategy",
+    warning: "bg-[#FFF4E5] text-warning",
+    danger: "bg-[#FFF1F1] text-danger",
+    muted: "bg-white/10 text-white"
+  };
+
+  return classes[tone];
 }
 
 function attendanceMethodLabel(value: string) {
