@@ -1020,7 +1020,10 @@ using (
     select 1
     from matches
     where matches.id = match_records.match_id
-      and private.is_team_member(matches.team_id, array['owner', 'manager']::team_role[])
+      and (
+        matches.created_by = (select auth.uid())
+        or private.is_team_member(matches.team_id, array['owner', 'manager']::team_role[])
+      )
   )
 )
 with check (
@@ -1029,7 +1032,10 @@ with check (
     select 1
     from matches
     where matches.id = match_records.match_id
-      and private.is_team_member(matches.team_id, array['owner', 'manager']::team_role[])
+      and (
+        matches.created_by = (select auth.uid())
+        or private.is_team_member(matches.team_id, array['owner', 'manager']::team_role[])
+      )
   )
 );
 
@@ -1072,7 +1078,10 @@ using (
     select 1
     from matches
     where matches.id = player_match_records.match_id
-      and private.is_team_member(matches.team_id, array['owner', 'manager']::team_role[])
+      and (
+        matches.created_by = (select auth.uid())
+        or private.is_team_member(matches.team_id, array['owner', 'manager']::team_role[])
+      )
   )
 )
 with check (
@@ -1080,7 +1089,10 @@ with check (
     select 1
     from matches
     where matches.id = player_match_records.match_id
-      and private.is_team_member(matches.team_id, array['owner', 'manager']::team_role[])
+      and (
+        matches.created_by = (select auth.uid())
+        or private.is_team_member(matches.team_id, array['owner', 'manager']::team_role[])
+      )
   )
 );
 
