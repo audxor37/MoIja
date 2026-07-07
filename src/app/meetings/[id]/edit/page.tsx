@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, CalendarClock, MapPin, Save, Timer, Users } from "lucide-react";
 import { updateMeeting } from "@/app/meetings/actions";
+import { HelpIcon } from "@/components/help-icon";
 import { canManageMeeting } from "@/lib/meetings";
 import { getCurrentUserId } from "@/lib/supabase/auth-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -76,7 +77,7 @@ export default async function EditMeetingPage({
           <input name="meetingId" type="hidden" value={currentMeeting.id} />
 
           <section>
-            <SectionHeader eyebrow="기본 정보" title="경기 정보와 운영 메모를 수정합니다" />
+            <SectionHeader eyebrow="기본 정보" title="경기 정보" />
             <div className="mt-5 grid gap-4">
               <label className="grid gap-2">
                 <span className="text-sm font-semibold text-secondary">경기 이름</span>
@@ -109,7 +110,7 @@ export default async function EditMeetingPage({
           </section>
 
           <section>
-            <SectionHeader eyebrow="운영 규칙" title="정원, 대기, 신청 마감을 수정합니다" />
+            <SectionHeader eyebrow="운영 규칙" title="참석 규칙" />
             <div className="mt-5 grid gap-4 md:grid-cols-3">
               <label className="setup-field">
                 <span className="flex items-center gap-2 text-sm font-semibold text-secondary">
@@ -119,7 +120,12 @@ export default async function EditMeetingPage({
                 <input className="field-input bg-white" min="1" name="capacity" defaultValue={currentMeeting.capacity ?? ""} type="number" />
               </label>
               <label className="setup-field">
-                <span className="text-sm font-semibold text-secondary">대기 허용</span>
+                <span className="flex items-center gap-2 text-sm font-semibold text-secondary">
+                  대기 허용
+                  <HelpIcon title="대기 허용">
+                    정원이 찼을 때 멤버가 대기 상태로 응답할 수 있습니다.
+                  </HelpIcon>
+                </span>
                 <select className="field-input bg-white" name="allowWaitlist" defaultValue={"allow_waitlist" in currentMeeting ? currentMeeting.allow_waitlist ? "on" : "" : "on"}>
                   <option value="on">허용</option>
                   <option value="">허용 안 함</option>
@@ -140,7 +146,12 @@ export default async function EditMeetingPage({
           </section>
 
           <section>
-            <SectionHeader eyebrow="출석 방식" title="출석 확정 흐름을 수정합니다" />
+            <div className="flex items-center gap-2">
+              <SectionHeader eyebrow="출석 방식" title="출석 확정" />
+              <HelpIcon title="출석 방식">
+                참석 응답과 실제 출석 확정은 분리됩니다. MVP에서는 운영자 확인을 권장합니다.
+              </HelpIcon>
+            </div>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {[
                 ["manual", "운영자 확인"],
@@ -161,7 +172,7 @@ export default async function EditMeetingPage({
             </div>
           </section>
 
-          <div className="flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:justify-end">
+          <div className="sticky bottom-3 z-20 flex flex-col gap-3 rounded-2xl border border-line bg-white/95 p-3 shadow-card backdrop-blur sm:flex-row sm:justify-end">
             <Link
               className="inline-flex h-12 items-center justify-center rounded-xl bg-surfaceAlt px-5 text-sm font-semibold text-secondary transition hover:bg-line"
               href="/"

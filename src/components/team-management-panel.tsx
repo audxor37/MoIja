@@ -4,6 +4,7 @@ import { useState } from "react";
 import { RefreshCcw, Users } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { performRegenerateTeamInviteCode, performUpdateTeamMemberRole } from "@/app/team/actions";
+import { HelpIcon } from "@/components/help-icon";
 import { InviteCodeCopyButton } from "@/components/invite-code-copy-button";
 import { useToast } from "@/components/toast-provider";
 import { queryKeys } from "@/lib/query-keys";
@@ -106,8 +107,12 @@ export function TeamManagementPanel({
       <section className="rounded-2xl bg-white p-5 shadow-card">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-bold">멤버 목록</h2>
-            <p className="mt-1 text-sm text-secondary">Owner, Manager, Coach, Member 역할을 관리합니다.</p>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold">멤버 목록</h2>
+              <HelpIcon title="역할">
+                Owner와 Manager는 팀과 경기를 관리합니다. Coach는 라인업을 관리하고 Member는 본인 참석 응답을 남깁니다.
+              </HelpIcon>
+            </div>
           </div>
           <Users className="text-primary" size={24} />
         </div>

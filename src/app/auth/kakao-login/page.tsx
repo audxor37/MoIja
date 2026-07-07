@@ -1,5 +1,6 @@
 import { ArrowLeft, ChevronRight, KeyRound, MessageCircle } from "lucide-react";
 import Link from "next/link";
+import { HelpIcon } from "@/components/help-icon";
 
 export default function KakaoLoginPage() {
   return (
@@ -20,9 +21,6 @@ export default function KakaoLoginPage() {
         <h1 className="mt-6 text-center text-3xl font-black leading-tight tracking-normal">
           카카오로 로그인
         </h1>
-        <p className="mt-3 text-center text-base font-semibold leading-7 text-secondary">
-          경기 참석과 알림을 바로 확인하세요.
-        </p>
 
         <a
           className="mt-7 inline-flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-[#FEE500] px-5 text-base font-black text-[#191600] shadow-sm transition hover:brightness-95"
@@ -41,9 +39,11 @@ export default function KakaoLoginPage() {
           일반 계정으로 로그인
         </Link>
 
-        <p className="mt-5 text-center text-xs font-semibold leading-5 text-muted">
-          닉네임과 프로필 정보만 사용합니다.
-        </p>
+        <div className="mt-5 flex justify-center">
+          <HelpIcon title="카카오 정보 사용">
+            닉네임과 프로필 정보만 사용합니다.
+          </HelpIcon>
+        </div>
       </section>
     </main>
   );

@@ -18,10 +18,21 @@ import Link from "next/link";
 import { createOrganizerTeam, joinTeamByInvite } from "@/app/onboarding/actions";
 import { AttendanceResponsePanel } from "@/components/attendance-response-panel";
 import { DashboardCacheHydrator } from "@/components/dashboard-cache-hydrator";
+import { HelpIcon } from "@/components/help-icon";
 import { InviteCodeCopyButton } from "@/components/invite-code-copy-button";
 import { attendanceStatusLabel } from "@/lib/attendance";
 import type { DashboardMeeting } from "@/lib/dashboard-session";
-import { getActiveDashboardNavItems, getReliabilityDisplay, getUpcomingMeetingActions, type DashboardTone } from "@/lib/dashboard-ux";
+import {
+  filterDashboardMeetings,
+  getActiveDashboardNavItems,
+  getMeetingFocusMetrics,
+  getReliabilityDisplay,
+  getUpcomingMeetingActions,
+  meetingListFilters,
+  normalizeMeetingListFilter,
+  type DashboardTone,
+  type MeetingListFilter
+} from "@/lib/dashboard-ux";
 import { formatMeetingDateTime } from "@/lib/meetings";
 import { getDashboardSession, type TeamSession } from "@/lib/server/dashboard-data";
 import { canManageTeamRole, teamRoleLabel } from "@/lib/team-management";
@@ -37,7 +48,13 @@ const navIconByLabel = {
 
 const activeNavItems = getActiveDashboardNavItems();
 
-export default async function Home() {
+export default async function Home({
+  searchParams
+}: {
+  searchParams?: Promise<{ meetingFilter?: string }>;
+}) {
+  const params = await searchParams;
+  const meetingFilter = normalizeMeetingListFilter(params?.meetingFilter);
   const session = await getDashboardSession();
 
   if (!session.nickname) {
@@ -61,12 +78,12 @@ export default async function Home() {
   return canManageTeamRole(session.team.role) ? (
     <>
       <DashboardCacheHydrator initialData={session} />
-      <OperatorDashboard team={session.team} />
+      <OperatorDashboard meetingFilter={meetingFilter} team={session.team} />
     </>
   ) : (
     <>
       <DashboardCacheHydrator initialData={session} />
-      <MemberDashboard team={session.team} />
+      <MemberDashboard meetingFilter={meetingFilter} team={session.team} />
     </>
   );
 }
@@ -87,25 +104,17 @@ function PublicHome() {
         </div>
       </header>
 
-      <section className="mx-auto grid w-full max-w-5xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-center lg:py-12">
-        <section className="rounded-2xl bg-white p-5 shadow-card sm:p-7">
-          <span className="inline-flex h-8 items-center rounded-full bg-[#E8F7EE] px-3 text-xs font-bold text-primary">
-            로그인 필요
-          </span>
-          <h1 className="mt-4 text-[32px] font-bold leading-[1.18] sm:text-[42px]">
-            경기 참석을 운영하려면 먼저 로그인하세요
-          </h1>
-          <p className="mt-4 text-base font-semibold leading-8 text-secondary">
-            초대받은 경기의 참석 여부, 대기 상태, 리마인드, 내 기록을 로그인 후 바로 확인할 수 있습니다.
-          </p>
+      <section className="mx-auto flex w-full max-w-[460px] px-4 py-8 sm:px-6 lg:py-14">
+        <section className="w-full rounded-2xl bg-white p-5 shadow-card sm:p-7">
+          <h1 className="text-center text-[34px] font-black leading-[1.1] sm:text-[42px]">MoIja</h1>
 
-          <div className="mt-6 grid gap-3">
+          <div className="mt-8 grid gap-3">
             <Link
               className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#FEE500] px-5 text-base font-black text-[#191600] shadow-sm transition hover:brightness-95"
               href="/auth/kakao-login"
             >
               <MessageCircle size={20} />
-              카카오로 계속하기
+              카카오로 시작하기
             </Link>
             <Link
               className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl border border-line bg-surfaceAlt px-5 text-sm font-black text-secondary transition hover:bg-line"
@@ -139,9 +148,6 @@ function OnboardingStart({ nickname }: { nickname: string }) {
           <h1 className="mt-4 text-[32px] font-bold leading-[1.18] sm:text-[42px]">
             지금 하려는 일을 선택해 주세요
           </h1>
-          <p className="mt-4 max-w-xl text-base font-semibold leading-8 text-secondary">
-            계정은 아직 운영자나 참석자로 나뉘지 않았습니다. 팀마다 역할을 다르게 가질 수 있도록 첫 행동만 선택합니다.
-          </p>
         </div>
 
         <div className="grid gap-5">
@@ -152,10 +158,7 @@ function OnboardingStart({ nickname }: { nickname: string }) {
               </div>
               <div>
                 <p className="text-sm font-bold text-primary">경기를 운영할게요</p>
-                <h2 className="mt-1 text-2xl font-bold">새 팀을 만들고 참석 관리를 시작합니다</h2>
-                <p className="mt-2 text-sm font-semibold leading-6 text-secondary">
-                  팀 이름과 종목만 먼저 저장합니다. 장소와 경기는 다음 단계에서 확장합니다.
-                </p>
+                <h2 className="mt-1 text-2xl font-bold">팀 만들기</h2>
               </div>
             </div>
 
@@ -191,10 +194,7 @@ function OnboardingStart({ nickname }: { nickname: string }) {
               </div>
               <div>
                 <p className="text-sm font-bold text-strategy">초대받은 경기에 참석할게요</p>
-                <h2 className="mt-1 text-2xl font-bold">초대 코드로 팀에 들어갑니다</h2>
-                <p className="mt-2 text-sm font-semibold leading-6 text-secondary">
-                  운영자에게 받은 코드나 링크를 입력하면 Member로 참여합니다.
-                </p>
+                <h2 className="mt-1 text-2xl font-bold">초대 코드 참여</h2>
               </div>
             </div>
 
@@ -222,11 +222,15 @@ function OnboardingStart({ nickname }: { nickname: string }) {
 }
 
 function OperatorDashboard({
+  meetingFilter,
   team
 }: {
+  meetingFilter: MeetingListFilter;
   team: TeamSession;
 }) {
   const nextMeeting = team.meetings[0] ?? null;
+  const nextMeetingMetrics = nextMeeting ? getMeetingFocusMetrics(nextMeeting.attendanceSummary) : [];
+  const filteredMeetings = filterDashboardMeetings(team.meetings, meetingFilter);
 
   return (
     <main className="min-h-screen bg-app pb-24 text-ink lg:pb-0">
@@ -256,9 +260,6 @@ function OperatorDashboard({
                 <h1 className="mt-2 max-w-3xl text-[26px] font-bold leading-9 sm:text-[32px]">
                   {team.name} 경기 관리
                 </h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-secondary">
-                  다음 경기의 미응답, 대기, 확정 필요 인원을 먼저 확인하고 바로 운영합니다.
-                </p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <InviteCodeCopyButton inviteCode={team.inviteCode} />
@@ -273,52 +274,68 @@ function OperatorDashboard({
             </section>
 
             {nextMeeting ? (
-              <section className="mt-5 rounded-2xl bg-navy p-4 text-white shadow-card sm:p-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-white/70">오늘/다음 경기 운영</p>
-                    <Link className="mt-1 block truncate text-2xl font-bold" href={`/meetings/${nextMeeting.id}`}>
-                      {nextMeeting.title}
-                    </Link>
-                    <p className="mt-2 text-sm font-semibold text-white/70">
-                      {formatMeetingDateTime(nextMeeting.startsAt)} · {nextMeeting.locationNote ?? "장소 미정"}
-                    </p>
+              <section className="mt-5 overflow-hidden rounded-2xl bg-navy text-white shadow-card">
+                <div className="border-b border-white/10 px-4 py-4 sm:px-5">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-white/70">오늘/다음 경기 운영</p>
+                      <Link className="mt-1 block truncate text-2xl font-bold" href={`/meetings/${nextMeeting.id}`}>
+                        {nextMeeting.title}
+                      </Link>
+                      <p className="mt-2 text-sm font-semibold text-white/70">
+                        {formatMeetingDateTime(nextMeeting.startsAt)} · {nextMeeting.locationNote ?? "장소 미정"}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[430px]">
+                      {nextMeetingMetrics.map((metric) => (
+                        <Link
+                          className={`min-h-16 rounded-xl px-3 py-2.5 ${operatorActionToneClass(metric.tone)}`}
+                          href={`/meetings/${nextMeeting.id}`}
+                          key={metric.label}
+                        >
+                          <span className="block text-[11px] font-bold opacity-75">{metric.label}</span>
+                          <span className="mt-1 block text-2xl font-black leading-7">{metric.value}</span>
+                        </Link>
+                      ))}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 lg:min-w-[520px]">
+                </div>
+                <div className="grid gap-3 px-4 py-4 sm:px-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
                     {getUpcomingMeetingActions(nextMeeting.attendanceSummary).map((action) => (
                       <Link
-                        className={`min-h-16 rounded-xl px-3 py-2.5 ${operatorActionToneClass(action.tone)}`}
+                        className={`rounded-xl px-3 py-2 ${operatorActionToneClass(action.tone)}`}
                         href={`/meetings/${nextMeeting.id}`}
                         key={action.label}
                       >
                         <span className="block text-[11px] font-bold opacity-75">{action.label}</span>
-                        <span className="mt-1 block text-2xl font-black leading-7">{action.value}</span>
+                        <span className="mt-1 block text-lg font-black leading-6">{action.value}</span>
                       </Link>
                     ))}
                   </div>
-                </div>
-                <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-                  <Link
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-black text-navy"
-                    href={`/meetings/${nextMeeting.id}`}
-                  >
-                    <ClipboardCheck size={17} />
-                    출석 운영
-                  </Link>
-                  <Link
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white/10 px-5 text-sm font-bold text-white"
-                    href={`/meetings/${nextMeeting.id}`}
-                  >
-                    <Users size={17} />
-                    용병/라인업
-                  </Link>
-                  <Link
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white/10 px-5 text-sm font-bold text-white"
-                    href={`/meetings/${nextMeeting.id}`}
-                  >
-                    <Siren size={17} />
-                    노쇼 처리
-                  </Link>
+                  <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[460px]">
+                    <Link
+                      className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-black text-navy"
+                      href={`/meetings/${nextMeeting.id}#attendance`}
+                    >
+                      <ClipboardCheck size={17} />
+                      출석 운영
+                    </Link>
+                    <Link
+                      className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white/10 px-5 text-sm font-bold text-white"
+                      href={`/meetings/${nextMeeting.id}#cycle`}
+                    >
+                      <Users size={17} />
+                      용병/라인업
+                    </Link>
+                    <Link
+                      className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white/10 px-5 text-sm font-bold text-white"
+                      href={`/meetings/${nextMeeting.id}#attendance`}
+                    >
+                      <Siren size={17} />
+                      노쇼 처리
+                    </Link>
+                  </div>
                 </div>
               </section>
             ) : null}
@@ -327,16 +344,16 @@ function OperatorDashboard({
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-lg font-bold">경기 목록</h2>
-                  <p className="mt-1 text-sm text-secondary">카드를 선택하면 상세 화면에서 참석 현황과 운영 도구를 확인합니다.</p>
                 </div>
                 <span className="inline-flex w-fit items-center gap-2 rounded-full bg-surfaceAlt px-3 py-1 text-xs font-bold text-secondary">
                   <Timer size={14} />
                   경기별 마감 표시
                 </span>
               </div>
+              <MeetingFilterBar activeFilter={meetingFilter} />
               <div className="mt-4 grid gap-3">
-                {team.meetings.length > 0 ? (
-                  team.meetings.map((meeting, index) => (
+                {filteredMeetings.length > 0 ? (
+                  filteredMeetings.map((meeting, index) => (
                     <MeetingCard key={meeting.id} meeting={meeting} selected={index === 0} />
                   ))
                 ) : (
@@ -353,12 +370,15 @@ function OperatorDashboard({
 }
 
 function MemberDashboard({
+  meetingFilter,
   team
 }: {
+  meetingFilter: MeetingListFilter;
   team: TeamSession;
 }) {
   const nextMeeting = team.meetings[0] ?? null;
   const reliabilityDisplay = getReliabilityDisplay(team.reliability);
+  const filteredMeetings = filterDashboardMeetings(team.meetings, meetingFilter);
 
   return (
     <main className="min-h-screen bg-app pb-24 text-ink lg:pb-0">
@@ -395,6 +415,19 @@ function MemberDashboard({
                 initialStatus={nextMeeting.myAttendanceStatus}
                 meetingId={nextMeeting.id}
               />
+              <section className="rounded-2xl bg-white p-4 shadow-card">
+                <h2 className="text-lg font-bold">경기 목록</h2>
+                <MeetingFilterBar activeFilter={meetingFilter} />
+                <div className="mt-4 grid gap-3">
+                  {filteredMeetings.length > 0 ? (
+                    filteredMeetings.map((meeting) => (
+                      <MeetingCard key={meeting.id} meeting={meeting} />
+                    ))
+                  ) : (
+                    <EmptyMemberMeetings />
+                  )}
+                </div>
+              </section>
             </div>
           ) : (
             <EmptyMemberMeetings />
@@ -413,8 +446,12 @@ function MemberDashboard({
           <section className="rounded-2xl bg-navy p-5 text-white shadow-card">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-lg font-bold">참석 신뢰도</h2>
-                <p className="mt-1 text-sm font-semibold text-white/60">{reliabilityDisplay.helper}</p>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold">참석 신뢰도</h2>
+                  <HelpIcon title="참석 신뢰도">
+                    참석 응답과 실제 출석 흐름을 함께 보는 운영 지표입니다. 노쇼가 있으면 회복 상태로 표시됩니다.
+                  </HelpIcon>
+                </div>
               </div>
               <span className={`rounded-full px-3 py-1 text-xs font-black ${reliabilityToneClass(reliabilityDisplay.tone)}`}>
                 {reliabilityDisplay.label}
@@ -442,7 +479,6 @@ function Brand() {
       </div>
       <div>
         <p className="text-lg font-bold leading-6">MoIja</p>
-        <p className="text-xs font-semibold text-muted">경기 참석 운영 플랫폼</p>
       </div>
     </div>
   );
@@ -488,46 +524,83 @@ function AuthActions({ nickname }: { nickname: string }) {
   );
 }
 
+function MeetingFilterBar({ activeFilter }: { activeFilter: MeetingListFilter }) {
+  return (
+    <nav className="sticky top-0 z-10 -mx-4 mt-4 flex gap-2 overflow-x-auto border-y border-line bg-white px-4 py-2 sm:mx-0 sm:rounded-xl sm:border sm:bg-surfaceAlt">
+      {meetingListFilters.map((filter) => {
+        const active = filter.value === activeFilter;
+        return (
+          <Link
+            className={`inline-flex h-9 shrink-0 items-center rounded-full px-3 text-xs font-black transition ${
+              active ? "bg-ink text-white" : "bg-white text-secondary hover:text-ink"
+            }`}
+            href={filter.value === "upcoming" ? "/" : `/?meetingFilter=${filter.value}`}
+            key={filter.value}
+          >
+            {filter.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
 function MeetingCard({ meeting, selected }: { meeting: DashboardMeeting; selected?: boolean }) {
   const summary = meeting.attendanceSummary;
+  const focusMetrics = getMeetingFocusMetrics(summary);
 
   return (
     <Link
-      className={`rounded-2xl border bg-white p-4 transition ${
+      className={`rounded-2xl border bg-white p-3.5 transition sm:p-4 ${
         selected ? "border-primary shadow-card" : "border-line hover:border-lineStrong"
       }`}
       href={`/meetings/${meeting.id}`}
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-lg font-bold transition">
-              {meeting.title}
-            </span>
-            <span className="rounded-full bg-[#E8F7EE] px-3 py-1 text-xs font-bold text-primary">등록됨</span>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-base font-black transition sm:text-lg">{meeting.title}</span>
+            {selected ? (
+              <span className="shrink-0 rounded-full bg-[#E8F7EE] px-2.5 py-1 text-[11px] font-bold text-primary">다음</span>
+            ) : null}
           </div>
-          <p className="mt-2 text-sm text-secondary">
+          <p className="mt-1.5 truncate text-sm font-semibold text-secondary">
             {formatMeetingDateTime(meeting.startsAt)} · {meeting.locationNote ?? "장소 미정"}
           </p>
         </div>
-        <span className="inline-flex w-fit rounded-full bg-[#FFF4E5] px-3 py-1 text-xs font-bold text-warning">
+        <span className="shrink-0 rounded-full bg-[#FFF4E5] px-2.5 py-1 text-[11px] font-bold text-warning">
           {meeting.attendanceClosesAt ? `${formatMeetingDateTime(meeting.attendanceClosesAt)} 마감` : "마감 미정"}
         </span>
       </div>
-      <div className="mt-4 grid gap-2 text-sm font-semibold text-secondary sm:grid-cols-3">
-        <StatusPill label="정원" value={meeting.capacity ? `${meeting.capacity}명` : "미정"} />
-        <StatusPill label="대기" value={meeting.allowWaitlist ? "허용" : "없음"} />
-        <StatusPill label="출석" value={attendanceMethodLabel(meeting.attendanceMethod)} />
+      <div className="mt-3 grid grid-cols-4 gap-1.5 text-sm font-semibold text-secondary">
+        {focusMetrics.map((metric) => (
+          <MetricPill key={metric.label} label={metric.label} tone={metric.tone} value={metric.value} />
+        ))}
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 text-sm font-semibold text-secondary sm:grid-cols-4">
-        <StatusPill label="응답률" value={`${summary.responseRate}%`} />
-        <StatusPill label="참석예정" value={`${summary.attendingCount}명`} />
-        <StatusPill label="미응답" value={`${summary.unansweredCount}명`} />
-        <StatusPill label="대기" value={`${summary.waitlistedCount}명`} />
-        <StatusPill label="노쇼" value={`${summary.noShowCount}명`} />
-        <StatusPill label="확정필요" value={`${summary.confirmationNeededCount}명`} />
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <TinyMeta label="정원" value={meeting.capacity ? `${meeting.capacity}명` : "미정"} />
+        <TinyMeta label="대기" value={meeting.allowWaitlist ? "허용" : "없음"} />
+        <TinyMeta label="방식" value={attendanceMethodLabel(meeting.attendanceMethod)} />
+        {summary.noShowCount > 0 ? <TinyMeta label="노쇼" value={`${summary.noShowCount}명`} danger /> : null}
       </div>
     </Link>
+  );
+}
+
+function MetricPill({ label, value, tone }: { label: string; value: string; tone: DashboardTone }) {
+  return (
+    <div className={`min-w-0 rounded-xl px-2 py-2 ${metricToneClass(tone)}`}>
+      <span className="block truncate text-[10px] font-bold opacity-70">{label}</span>
+      <span className="mt-0.5 block truncate text-base font-black leading-5">{value}</span>
+    </div>
+  );
+}
+
+function TinyMeta({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ${danger ? "bg-[#FFF1F1] text-danger" : "bg-surfaceAlt text-secondary"}`}>
+      {label} {value}
+    </span>
   );
 }
 
@@ -553,9 +626,6 @@ function EmptyMeetings() {
   return (
     <div className="rounded-2xl border border-dashed border-lineStrong bg-surfaceAlt p-6 text-center">
       <p className="text-lg font-bold">아직 등록된 경기가 없습니다</p>
-      <p className="mt-2 text-sm font-semibold leading-6 text-secondary">
-        새 경기를 만들면 참석 마감과 운영 규칙이 이곳에 표시됩니다.
-      </p>
       <Link
         className="mt-5 inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-white"
         href="/meetings/new"
@@ -571,9 +641,6 @@ function EmptyMemberMeetings() {
   return (
     <div className="mt-6 rounded-2xl border border-dashed border-lineStrong bg-surfaceAlt p-6 text-center">
       <p className="text-lg font-bold">예정된 경기가 없습니다</p>
-      <p className="mt-2 text-sm font-semibold leading-6 text-secondary">
-        운영자가 경기를 만들면 여기서 참석 상태를 바로 남길 수 있습니다.
-      </p>
     </div>
   );
 }
@@ -629,6 +696,18 @@ function operatorActionToneClass(tone: DashboardTone) {
     warning: "bg-[#FFF4E5] text-warning",
     danger: "bg-[#FFF1F1] text-danger",
     muted: "bg-white/10 text-white"
+  };
+
+  return classes[tone];
+}
+
+function metricToneClass(tone: DashboardTone) {
+  const classes: Record<DashboardTone, string> = {
+    success: "bg-[#E8F7EE] text-primary",
+    info: "bg-[#E8F3FF] text-strategy",
+    warning: "bg-[#FFF4E5] text-warning",
+    danger: "bg-[#FFF1F1] text-danger",
+    muted: "bg-surfaceAlt text-secondary"
   };
 
   return classes[tone];

@@ -10,7 +10,7 @@ export default async function TeamPage() {
   const userId = await getCurrentUserId(supabase);
 
   if (!userId) {
-    return <Shell message="로그인 후 팀 관리를 사용할 수 있습니다." />;
+    return <Shell message="로그인이 필요합니다" />;
   }
 
   const { data: membership } = await supabase
@@ -27,7 +27,7 @@ export default async function TeamPage() {
   const team = Array.isArray(typedMembership?.teams) ? typedMembership?.teams[0] : typedMembership?.teams;
 
   if (!typedMembership || !team || !canManageTeamRole(typedMembership.role)) {
-    return <Shell message="팀 관리는 Owner 또는 Manager만 사용할 수 있습니다." />;
+    return <Shell message="권한 없음" />;
   }
 
   const { data: members } = await supabase
@@ -69,8 +69,7 @@ function Shell({ message }: { message: string }) {
     <main className="min-h-screen bg-app px-4 py-10 text-ink">
       <section className="mx-auto max-w-xl rounded-2xl bg-white p-6 shadow-card">
         <Copy className="text-muted" size={24} />
-        <h1 className="mt-4 text-2xl font-bold">팀 관리</h1>
-        <p className="mt-3 text-sm font-semibold leading-6 text-secondary">{message}</p>
+        <h1 className="mt-4 text-2xl font-bold">{message}</h1>
         <Link className="mt-5 inline-flex h-12 items-center justify-center rounded-xl bg-primary px-5 text-sm font-bold text-white" href="/">
           홈으로
         </Link>

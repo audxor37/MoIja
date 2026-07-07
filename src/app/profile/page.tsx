@@ -14,7 +14,6 @@ export default async function ProfilePage() {
         <section className="mx-auto max-w-md rounded-2xl bg-white p-5 shadow-card">
           <ShieldCheck className="text-muted" size={24} />
           <h1 className="mt-4 text-2xl font-bold">내 정보</h1>
-          <p className="mt-3 text-sm font-semibold leading-6 text-secondary">로그인 후 내 정보를 확인할 수 있습니다.</p>
           <Link className="mt-5 inline-flex h-12 items-center justify-center rounded-xl bg-primary px-5 text-sm font-bold text-white" href="/">
             홈으로
           </Link>
@@ -71,9 +70,10 @@ export default async function ProfilePage() {
               <Users className="text-strategy" size={20} />
               <h2 className="text-lg font-bold">팀 정보</h2>
             </div>
-            <p className="mt-3 text-sm font-semibold leading-6 text-secondary">
-              개인 기능은 이 화면에서 관리하고, 경기 운영은 홈과 경기 상세에서 진행합니다.
-            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <InfoPill label="팀" value={session.team.name} />
+              <InfoPill label="역할" value={teamRoleLabel(session.team.role)} />
+            </div>
           </section>
         ) : null}
       </section>

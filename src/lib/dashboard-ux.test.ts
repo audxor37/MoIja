@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   getActiveDashboardNavItems,
+  filterDashboardMeetings,
+  getMeetingFocusMetrics,
   getReliabilityDisplay,
   getUpcomingMeetingActions
 } from "./dashboard-ux";
@@ -16,6 +18,7 @@ test("keeps only dashboard navigation items that lead to active screens", () => 
 test("builds compact next-match action metrics for operators", () => {
   const actions = getUpcomingMeetingActions({
     attendingCount: 12,
+    responseRate: 63,
     unansweredCount: 4,
     waitlistedCount: 2,
     confirmationNeededCount: 3,
@@ -29,6 +32,45 @@ test("builds compact next-match action metrics for operators", () => {
     { label: "확정 필요", value: "3", tone: "warning" },
     { label: "노쇼 위험", value: "1", tone: "danger" }
   ]);
+});
+
+test("prioritizes compact meeting metrics for fast mobile scanning", () => {
+  const metrics = getMeetingFocusMetrics({
+    attendingCount: 12,
+    responseRate: 63,
+    unansweredCount: 4,
+    waitlistedCount: 2,
+    confirmationNeededCount: 3,
+    noShowCount: 1
+  });
+
+  assert.deepEqual(metrics, [
+    { label: "응답률", value: "63%", tone: "info" },
+    { label: "미응답", value: "4", tone: "muted" },
+    { label: "확정필요", value: "3", tone: "warning" },
+    { label: "노쇼", value: "1", tone: "danger" }
+  ]);
+});
+
+test("filters dashboard meetings by mobile list chips", () => {
+  const meetings = [
+    {
+      id: "today",
+      startsAt: "2026-07-07T10:00:00.000Z",
+      myAttendanceStatus: "attending",
+      attendanceSummary: { confirmationNeededCount: 0 }
+    },
+    {
+      id: "needs-record",
+      startsAt: "2026-07-08T10:00:00.000Z",
+      myAttendanceStatus: null,
+      attendanceSummary: { confirmationNeededCount: 2 }
+    }
+  ];
+
+  assert.deepEqual(filterDashboardMeetings(meetings, "today", new Date("2026-07-07T03:00:00.000Z")).map((meeting) => meeting.id), ["today"]);
+  assert.deepEqual(filterDashboardMeetings(meetings, "mine", new Date("2026-07-07T03:00:00.000Z")).map((meeting) => meeting.id), ["today"]);
+  assert.deepEqual(filterDashboardMeetings(meetings, "needs-record", new Date("2026-07-07T03:00:00.000Z")).map((meeting) => meeting.id), ["needs-record"]);
 });
 
 test("labels reliability so members understand their status", () => {
