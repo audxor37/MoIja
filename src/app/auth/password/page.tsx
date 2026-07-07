@@ -31,9 +31,6 @@ export default async function PasswordAuthPage({
         <h1 className="mt-6 text-center text-3xl font-black leading-tight tracking-normal">
           {isSignUp ? "회원가입" : "로그인"}
         </h1>
-        <p className="mt-3 text-center text-base font-semibold leading-7 text-secondary">
-          {isSignUp ? "이메일, 비밀번호, 닉네임만 입력하세요." : "이메일과 비밀번호를 입력하세요."}
-        </p>
 
         <div className="mt-6 grid grid-cols-2 gap-2 rounded-2xl bg-surfaceAlt p-1.5">
           <Link

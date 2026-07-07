@@ -1,28 +1,19 @@
 import Link from "next/link";
 import {
   ArrowLeft,
-  Bell,
   CalendarClock,
-  CheckCircle2,
-  ClipboardCheck,
   MapPin,
   Plus,
-  ShieldCheck,
   Timer,
   Users
 } from "lucide-react";
 import { createMeeting } from "@/app/meetings/actions";
+import { HelpIcon } from "@/components/help-icon";
 
 const attendanceMethods = [
   { value: "manual", label: "운영자 확인", description: "현장에서 운영자가 직접 출석을 확정합니다.", badge: "MVP 권장" },
   { value: "qr", label: "QR 체크", description: "멤버가 QR로 빠르게 체크인합니다.", badge: "빠른 체크" },
   { value: "gps_approval", label: "GPS + 승인", description: "위치 확인 후 운영자가 최종 승인합니다.", badge: "신뢰도 강화" }
-];
-
-const reminderRules = [
-  "마감 24시간 전 미응답 멤버 알림",
-  "마감 3시간 전 참석자 리마인드",
-  "취소 발생 시 대기자 전환 안내"
 ];
 
 export default async function NewMeetingPage() {
@@ -43,25 +34,16 @@ export default async function NewMeetingPage() {
                 경기 생성
               </span>
               <h1 className="mt-2 text-[30px] font-bold leading-10">
-                참석 신뢰도를 높이는 경기를 만듭니다
+                새 경기
               </h1>
             </div>
           </div>
-          <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-card lg:max-w-md">
-            <ShieldCheck className="shrink-0 text-primary" size={22} />
-            <p className="text-sm font-semibold leading-6 text-secondary">
-              저장할 때 신청 마감, 대기 허용, 출석 방식을 함께 남겨 노쇼 위험을 줄입니다.
-            </p>
-          </div>
         </header>
 
-        <section className="grid gap-6 py-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:py-8">
+        <section className="mx-auto grid w-full max-w-3xl gap-6 py-6 lg:py-8">
           <form action={createMeeting} className="grid gap-5 rounded-2xl bg-white p-5 shadow-card sm:p-6">
             <section>
-              <SectionHeader
-                eyebrow="기본 정보"
-                title="멤버가 바로 이해할 수 있는 경기 정보를 입력하세요"
-              />
+              <SectionHeader eyebrow="기본 정보" title="경기 정보" />
               <div className="mt-5 grid gap-4">
                 <label className="grid gap-2">
                   <span className="text-sm font-semibold text-secondary">경기 이름</span>
@@ -78,7 +60,7 @@ export default async function NewMeetingPage() {
                   <textarea
                     className="min-h-32 resize-none rounded-[14px] border border-line bg-white px-4 py-3 text-sm font-semibold leading-6 outline-none transition placeholder:text-disabled focus:border-strategy focus:ring-4 focus:ring-[#2563EB]/10"
                     name="memo"
-                    placeholder="준비물, 팀 배정 방식, 우천 시 안내 등을 적어 주세요."
+                    placeholder="준비물, 팀 배정, 우천 안내"
                   />
                 </label>
               </div>
@@ -100,7 +82,7 @@ export default async function NewMeetingPage() {
             </section>
 
             <section>
-              <SectionHeader eyebrow="운영 규칙" title="정원, 대기, 신청 마감을 함께 정합니다" />
+              <SectionHeader eyebrow="운영 규칙" title="참석 규칙" />
               <div className="mt-5 grid gap-4 md:grid-cols-3">
                 <label className="setup-field">
                   <span className="flex items-center gap-2 text-sm font-semibold text-secondary">
@@ -110,7 +92,12 @@ export default async function NewMeetingPage() {
                   <input className="field-input bg-white" min="1" name="capacity" placeholder="18" type="number" />
                 </label>
                 <label className="setup-field">
-                  <span className="text-sm font-semibold text-secondary">대기 허용</span>
+                  <span className="flex items-center gap-2 text-sm font-semibold text-secondary">
+                    대기 허용
+                    <HelpIcon title="대기 허용">
+                      정원이 찼을 때 멤버가 대기 상태로 응답할 수 있습니다.
+                    </HelpIcon>
+                  </span>
                   <select className="field-input bg-white" name="allowWaitlist" defaultValue="on">
                     <option value="on">허용</option>
                     <option value="">허용 안 함</option>
@@ -131,7 +118,12 @@ export default async function NewMeetingPage() {
             </section>
 
             <section>
-              <SectionHeader eyebrow="출석 방식" title="현장 운영 방식에 맞게 출석 확정 흐름을 고르세요" />
+              <div className="flex items-center gap-2">
+                <SectionHeader eyebrow="출석 방식" title="출석 확정" />
+                <HelpIcon title="출석 방식">
+                  참석 응답과 실제 출석 확정은 분리됩니다. MVP에서는 운영자 확인을 권장합니다.
+                </HelpIcon>
+              </div>
               <div className="mt-5 grid gap-3 md:grid-cols-3">
                 {attendanceMethods.map((method, index) => (
                   <label
@@ -152,14 +144,16 @@ export default async function NewMeetingPage() {
                         {method.badge}
                       </span>
                     </div>
-                    <span className="text-base font-bold">{method.label}</span>
-                    <span className="text-sm leading-6 text-secondary">{method.description}</span>
+                    <span className="flex items-center gap-2 text-base font-bold">
+                      {method.label}
+                      <HelpIcon title={method.label}>{method.description}</HelpIcon>
+                    </span>
                   </label>
                 ))}
               </div>
             </section>
 
-            <div className="flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:justify-end">
+            <div className="sticky bottom-3 z-20 flex flex-col gap-3 rounded-2xl border border-line bg-white/95 p-3 shadow-card backdrop-blur sm:flex-row sm:justify-end">
               <Link
                 className="inline-flex h-12 items-center justify-center rounded-xl bg-surfaceAlt px-5 text-sm font-semibold text-secondary transition hover:bg-line"
                 href="/"
@@ -176,33 +170,6 @@ export default async function NewMeetingPage() {
             </div>
           </form>
 
-          <aside className="grid gap-5 self-start">
-            <section className="rounded-2xl bg-white p-5 shadow-card">
-              <div className="flex items-center gap-3">
-                <ClipboardCheck className="text-primary" size={22} />
-                <h2 className="text-lg font-bold">운영 체크</h2>
-              </div>
-              <div className="mt-5 grid gap-3">
-                {reminderRules.map((rule) => (
-                  <div className="flex gap-3 rounded-xl bg-surfaceAlt p-3" key={rule}>
-                    <CheckCircle2 className="mt-0.5 shrink-0 text-primary" size={18} />
-                    <p className="text-sm font-semibold leading-6 text-secondary">{rule}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="rounded-2xl bg-white p-5 shadow-card">
-              <div className="flex items-center gap-3">
-                <Bell className="text-strategy" size={22} />
-                <h2 className="text-lg font-bold">노쇼 감소 포인트</h2>
-              </div>
-              <p className="mt-4 text-sm font-semibold leading-7 text-secondary">
-                신청 마감과 대기 허용을 함께 설정하면 취소 자리를 빠르게 채울 수 있습니다.
-                출석 확정 이후의 상태 변경 기록은 신뢰도 계산의 기반이 됩니다.
-              </p>
-            </section>
-          </aside>
         </section>
       </div>
     </main>

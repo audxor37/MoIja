@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { performUpdateManagedAttendance } from "@/app/meetings/actions";
+import { HelpIcon } from "@/components/help-icon";
 import { buildAttendanceSummary, type AttendanceStatus } from "@/lib/attendance";
 import { queryKeys } from "@/lib/query-keys";
 import { useToast } from "@/components/toast-provider";
@@ -103,7 +104,12 @@ export function ManagedAttendancePanel({
     <article className="rounded-2xl bg-white p-4 shadow-card sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h2 className="text-lg font-bold">출석 운영</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold">출석 운영</h2>
+            <HelpIcon title="출석 운영">
+              참석 응답은 멤버의 의사 표시이고, 최종 출석 확정과 노쇼 처리는 운영자가 결정합니다.
+            </HelpIcon>
+          </div>
           <p className="mt-1 text-sm font-semibold leading-5 text-secondary">
             정원까지 {summary.confirmationNeededCount}명 부족 · 미응답 {summary.unansweredCount}명 · 대기 {summary.waitlistedCount}명
           </p>
