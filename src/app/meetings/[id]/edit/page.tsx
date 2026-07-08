@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, CalendarClock, MapPin, Save, Timer, Users } from "lucide-react";
 import { updateMeeting } from "@/app/meetings/actions";
 import { HelpIcon } from "@/components/help-icon";
+import { RoutePendingLink, SubmitButton } from "@/components/pending-ui";
 import { canManageMeeting } from "@/lib/meetings";
 import { getCurrentUserId } from "@/lib/supabase/auth-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -58,13 +58,13 @@ export default async function EditMeetingPage({
     <main className="min-h-screen bg-app text-ink">
       <div className="mx-auto flex w-full max-w-5xl flex-col px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
         <header className="flex items-center gap-3 border-b border-line pb-6">
-          <Link
+          <RoutePendingLink
             aria-label="대시보드로 돌아가기"
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-secondary shadow-soft transition hover:bg-surfaceAlt"
             href="/"
           >
             <ArrowLeft size={20} />
-          </Link>
+          </RoutePendingLink>
           <div>
             <span className="inline-flex h-7 items-center rounded-full bg-[#E8F3FF] px-3 text-xs font-bold text-strategy">
               경기 수정
@@ -173,19 +173,19 @@ export default async function EditMeetingPage({
           </section>
 
           <div className="sticky bottom-3 z-20 flex flex-col gap-3 rounded-2xl border border-line bg-white/95 p-3 shadow-card backdrop-blur sm:flex-row sm:justify-end">
-            <Link
+            <RoutePendingLink
               className="inline-flex h-12 items-center justify-center rounded-xl bg-surfaceAlt px-5 text-sm font-semibold text-secondary transition hover:bg-line"
               href="/"
             >
               취소
-            </Link>
-            <button
+            </RoutePendingLink>
+            <SubmitButton
               className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-base font-bold text-white shadow-card transition hover:bg-[#12843D]"
-              type="submit"
+              pendingLabel="저장 중"
             >
               <Save size={18} />
               수정 저장
-            </button>
+            </SubmitButton>
           </div>
         </form>
       </div>

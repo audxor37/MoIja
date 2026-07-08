@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { performRegenerateTeamInviteCode, performUpdateTeamMemberRole } from "@/app/team/actions";
 import { HelpIcon } from "@/components/help-icon";
 import { InviteCodeCopyButton } from "@/components/invite-code-copy-button";
+import { PendingButtonContent } from "@/components/pending-ui";
 import { useToast } from "@/components/toast-provider";
 import { queryKeys } from "@/lib/query-keys";
 import { canAssignTeamRole, TEAM_ROLES, teamRoleLabel } from "@/lib/team-management";
@@ -98,7 +99,9 @@ export function TeamManagementPanel({
               type="button"
             >
               <RefreshCcw size={16} />
-              {inviteMutation.isPending ? "재발급 중" : "초대 코드 재발급"}
+              <PendingButtonContent pending={inviteMutation.isPending} pendingLabel="재발급 중">
+                초대 코드 재발급
+              </PendingButtonContent>
             </button>
           </div>
         </section>
@@ -152,7 +155,13 @@ export function TeamManagementPanel({
                       ))}
                     </select>
                     <span className="inline-flex h-11 min-w-14 items-center justify-center text-xs font-bold text-muted">
-                      {isPending ? "저장 중" : ""}
+                      {isPending ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-primary">
+                          <PendingButtonContent pending pendingLabel="저장 중">
+                            저장
+                          </PendingButtonContent>
+                        </span>
+                      ) : null}
                     </span>
                   </div>
                 </div>

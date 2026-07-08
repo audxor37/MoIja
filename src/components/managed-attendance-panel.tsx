@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { performUpdateManagedAttendance } from "@/app/meetings/actions";
 import { HelpIcon } from "@/components/help-icon";
+import { PendingButtonContent } from "@/components/pending-ui";
 import { buildAttendanceSummary, type AttendanceStatus } from "@/lib/attendance";
 import { queryKeys } from "@/lib/query-keys";
 import { useToast } from "@/components/toast-provider";
@@ -209,14 +210,16 @@ function AttendanceActionButton({
 
   return (
     <button
-      className={`h-8 rounded-lg px-2.5 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 sm:h-9 sm:px-3 ${
+      className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-lg px-2.5 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 sm:h-9 sm:px-3 ${
         danger ? "border border-[#FFD7D7] bg-white text-danger hover:bg-[#FFF1F1]" : "bg-primary text-white hover:bg-[#12843D]"
       }`}
       disabled={mutation.isPending}
       onClick={() => mutation.mutate({ profileId, status })}
       type="button"
     >
-      {isPending ? "저장 중" : label}
+      <PendingButtonContent pending={isPending} pendingLabel="저장 중">
+        {label}
+      </PendingButtonContent>
     </button>
   );
 }

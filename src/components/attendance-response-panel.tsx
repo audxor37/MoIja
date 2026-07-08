@@ -10,6 +10,7 @@ import {
   type AttendanceStatus
 } from "@/lib/attendance";
 import { queryKeys } from "@/lib/query-keys";
+import { PendingButtonContent } from "@/components/pending-ui";
 import { useToast } from "@/components/toast-provider";
 
 const responseOptions = [
@@ -97,8 +98,10 @@ export function AttendanceResponsePanel({
               onClick={() => mutation.mutate(option.status)}
               type="button"
             >
-              <span className="truncate text-sm font-black sm:text-base">
-                {pendingStatus === option.status ? "저장 중" : option.label}
+              <span className="inline-flex min-w-0 items-center gap-1.5 truncate text-sm font-black sm:text-base">
+                <PendingButtonContent pending={pendingStatus === option.status} pendingLabel="저장 중">
+                  {option.label}
+                </PendingButtonContent>
               </span>
               <span className="text-xs font-semibold leading-4 opacity-80 sm:text-sm sm:leading-5">{option.description}</span>
             </button>

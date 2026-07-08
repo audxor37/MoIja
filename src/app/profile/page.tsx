@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { ArrowLeft, LogOut, ShieldCheck, Users } from "lucide-react";
+import { RoutePendingLink, SubmitButton } from "@/components/pending-ui";
 import { getDashboardSession } from "@/lib/server/dashboard-data";
 import { teamRoleLabel } from "@/lib/team-management";
 
@@ -14,9 +14,9 @@ export default async function ProfilePage() {
         <section className="mx-auto max-w-md rounded-2xl bg-white p-5 shadow-card">
           <ShieldCheck className="text-muted" size={24} />
           <h1 className="mt-4 text-2xl font-bold">내 정보</h1>
-          <Link className="mt-5 inline-flex h-12 items-center justify-center rounded-xl bg-primary px-5 text-sm font-bold text-white" href="/">
+          <RoutePendingLink className="mt-5 inline-flex h-12 items-center justify-center rounded-xl bg-primary px-5 text-sm font-bold text-white" href="/">
             홈으로
-          </Link>
+          </RoutePendingLink>
         </section>
       </main>
     );
@@ -25,13 +25,13 @@ export default async function ProfilePage() {
   return (
     <main className="min-h-screen bg-app px-4 py-5 text-ink sm:px-6 lg:py-8">
       <section className="mx-auto max-w-2xl">
-        <Link
+        <RoutePendingLink
           className="inline-flex h-11 items-center gap-2 rounded-xl bg-white px-4 text-sm font-bold text-secondary shadow-soft transition hover:bg-surfaceAlt"
           href="/"
         >
           <ArrowLeft size={18} />
           홈
-        </Link>
+        </RoutePendingLink>
 
         <section className="mt-4 rounded-2xl bg-white p-5 shadow-card sm:p-6">
           <span className="inline-flex h-7 items-center rounded-full bg-[#E8F7EE] px-3 text-xs font-bold text-primary">
@@ -54,13 +54,13 @@ export default async function ProfilePage() {
           </div>
 
           <form action="/api/auth/signout" className="mt-6" method="post">
-            <button
+            <SubmitButton
               className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-surfaceAlt px-5 text-sm font-bold text-secondary transition hover:bg-line sm:w-auto"
-              type="submit"
+              pendingLabel="로그아웃 중"
             >
               <LogOut size={17} />
               로그아웃
-            </button>
+            </SubmitButton>
           </form>
         </section>
 
