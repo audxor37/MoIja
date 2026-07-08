@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { performDeleteMeeting } from "@/app/meetings/actions";
+import { PendingButtonContent } from "@/components/pending-ui";
 import { queryKeys } from "@/lib/query-keys";
 import { useToast } from "@/components/toast-provider";
 
@@ -90,7 +91,9 @@ export function DeleteMeetingButton({
                 type="button"
               >
                 <Trash2 size={16} />
-                {mutation.isPending ? "삭제 중" : "삭제"}
+                <PendingButtonContent pending={mutation.isPending} pendingLabel="삭제 중">
+                  삭제
+                </PendingButtonContent>
               </button>
             </div>
           </section>

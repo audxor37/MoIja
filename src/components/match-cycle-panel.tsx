@@ -8,6 +8,7 @@ import {
   performSaveMatchRecord,
   performUpdateGuestAttendance
 } from "@/app/meetings/actions";
+import { InlineSpinner, PendingButtonContent } from "@/components/pending-ui";
 import {
   FORMATION_PRESETS,
   buildInviteSharePayload,
@@ -101,6 +102,8 @@ export function MatchCyclePanel({
   const [isScoreModalOpen, setIsScoreModalOpen] = useState(false);
   const [selectedScorerId, setSelectedScorerId] = useState("");
   const [selectedAssistId, setSelectedAssistId] = useState("");
+  const [sharingInviteCode, setSharingInviteCode] = useState<string | null>(null);
+  const [isBoardImagePending, setIsBoardImagePending] = useState(false);
 
   const playablePlayers = useMemo(
     () => players.filter((player) => ["attending", "accepted", "confirmed"].includes(player.status)),
@@ -160,6 +163,7 @@ export function MatchCyclePanel({
   });
 
   async function shareInviteCode(inviteCode: string) {
+    setSharingInviteCode(inviteCode);
     const payload = buildInviteSharePayload({
       inviteCode,
       siteUrl: window.location.origin
@@ -176,6 +180,8 @@ export function MatchCyclePanel({
       showToast({ message: "공유가 제한된 환경이라 초대 내용을 복사했습니다." });
     } catch {
       showToast({ message: `공유가 제한된 환경입니다. 코드: ${inviteCode}`, tone: "error" });
+    } finally {
+      setSharingInviteCode(null);
     }
   }
 
@@ -213,11 +219,14 @@ export function MatchCyclePanel({
   }
 
   async function saveBoardImageToPhotos() {
+    setIsBoardImagePending(true);
     try {
       const pngBlob = await createBoardPngBlob({ formation, slots: lineupSlots, note: boardNote });
       await saveBoardImageWithFallback(pngBlob);
     } catch {
       showToast({ message: "라인업 이미지 공유에 실패했습니다. 잠시 후 다시 시도해 주세요.", tone: "error" });
+    } finally {
+      setIsBoardImagePending(false);
     }
   }
 
@@ -344,8 +353,12 @@ export function MatchCyclePanel({
             ))}
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-            <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-2 text-sm font-bold text-white sm:gap-2 sm:px-4" onClick={() => lineupMutation.mutate()} type="button"><Save size={16} /> 저장</button>
-            <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-surfaceAlt px-2 text-sm font-bold text-secondary sm:gap-2 sm:px-4" onClick={saveBoardImageToPhotos} type="button"><Share2 size={16} /> 라인업 공유</button>
+            <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:gap-2 sm:px-4" disabled={lineupMutation.isPending} onClick={() => lineupMutation.mutate()} type="button">
+              <PendingButtonContent pending={lineupMutation.isPending} pendingLabel="저장 중"><Save size={16} /> 저장</PendingButtonContent>
+            </button>
+            <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-surfaceAlt px-2 text-sm font-bold text-secondary disabled:cursor-not-allowed disabled:opacity-60 sm:gap-2 sm:px-4" disabled={isBoardImagePending} onClick={saveBoardImageToPhotos} type="button">
+              <PendingButtonContent pending={isBoardImagePending} pendingLabel="공유 준비 중"><Share2 size={16} /> 라인업 공유</PendingButtonContent>
+            </button>
             {/* <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-surfaceAlt px-2 text-sm font-bold text-secondary sm:gap-2 sm:px-4" onClick={downloadBoardImage} type="button"><Download size={16} /> 이미지</button> */}
           </div>
         </section>
@@ -364,12 +377,13 @@ export function MatchCyclePanel({
               <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-sm font-bold" key={invite.id}>
                 <span className="select-all">{invite.code}</span>
                 <button
-                  className="text-secondary"
+                  className="text-secondary disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={sharingInviteCode !== null}
                   onClick={() => void shareInviteCode(invite.code)}
                   title="초대코드 공유"
                   type="button"
                 >
-                  <Share2 size={16} />
+                  {sharingInviteCode === invite.code ? <InlineSpinner /> : <Share2 size={16} />}
                 </button>
               </div>
             ))}
@@ -388,8 +402,12 @@ export function MatchCyclePanel({
             </div>
             {canManageGuests && player.playerKind === "guest" && player.matchGuestId ? (
               <div className="flex gap-2">
-                <button className="h-9 rounded-lg bg-primary px-3 text-xs font-bold text-white" onClick={() => guestStatusMutation.mutate({ matchGuestId: player.matchGuestId!, status: "confirmed" })} type="button">참석</button>
-                <button className="h-9 rounded-lg border border-[#FFD7D7] px-3 text-xs font-bold text-danger" onClick={() => guestStatusMutation.mutate({ matchGuestId: player.matchGuestId!, status: "no_show" })} type="button">노쇼</button>
+                <button className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60" disabled={guestStatusMutation.isPending} onClick={() => guestStatusMutation.mutate({ matchGuestId: player.matchGuestId!, status: "confirmed" })} type="button">
+                  <PendingButtonContent pending={guestStatusMutation.isPending && guestStatusMutation.variables?.matchGuestId === player.matchGuestId && guestStatusMutation.variables.status === "confirmed"} pendingLabel="저장 중">참석</PendingButtonContent>
+                </button>
+                <button className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[#FFD7D7] px-3 text-xs font-bold text-danger disabled:cursor-not-allowed disabled:opacity-60" disabled={guestStatusMutation.isPending} onClick={() => guestStatusMutation.mutate({ matchGuestId: player.matchGuestId!, status: "no_show" })} type="button">
+                  <PendingButtonContent pending={guestStatusMutation.isPending && guestStatusMutation.variables?.matchGuestId === player.matchGuestId && guestStatusMutation.variables.status === "no_show"} pendingLabel="저장 중">노쇼</PendingButtonContent>
+                </button>
               </div>
             ) : null}
           </div>
@@ -459,7 +477,9 @@ export function MatchCyclePanel({
           </section>
           <input className="field-input" name="opponentName" placeholder="상대팀" defaultValue={initialRecord?.opponentName ?? ""} />
           <textarea className="field-input min-h-24" name="memo" placeholder="경기 메모" defaultValue={initialRecord?.memo ?? ""} />
-          <button className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-bold text-white" type="submit"><Save size={16} /> 경기 기록 저장</button>
+          <button className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60" disabled={recordMutation.isPending} type="submit">
+            <PendingButtonContent pending={recordMutation.isPending} pendingLabel="저장 중"><Save size={16} /> 경기 기록 저장</PendingButtonContent>
+          </button>
         </form>
       ) : null}
 

@@ -14,24 +14,20 @@ import {
   UserRoundPlus,
   Users
 } from "lucide-react";
-import Link from "next/link";
 import { createOrganizerTeam, joinTeamByInvite } from "@/app/onboarding/actions";
 import { AttendanceResponsePanel } from "@/components/attendance-response-panel";
 import { DashboardCacheHydrator } from "@/components/dashboard-cache-hydrator";
+import { DashboardMeetingList } from "@/components/dashboard-meeting-list";
 import { HelpIcon } from "@/components/help-icon";
 import { InviteCodeCopyButton } from "@/components/invite-code-copy-button";
+import { RoutePendingLink, SubmitButton } from "@/components/pending-ui";
 import { attendanceStatusLabel } from "@/lib/attendance";
-import type { DashboardMeeting } from "@/lib/dashboard-session";
 import {
-  filterDashboardMeetings,
   getActiveDashboardNavItems,
   getMeetingFocusMetrics,
   getReliabilityDisplay,
   getUpcomingMeetingActions,
-  meetingListFilters,
-  normalizeMeetingListFilter,
-  type DashboardTone,
-  type MeetingListFilter
+  type DashboardTone
 } from "@/lib/dashboard-ux";
 import { formatMeetingDateTime } from "@/lib/meetings";
 import { getDashboardSession, type TeamSession } from "@/lib/server/dashboard-data";
@@ -48,13 +44,7 @@ const navIconByLabel = {
 
 const activeNavItems = getActiveDashboardNavItems();
 
-export default async function Home({
-  searchParams
-}: {
-  searchParams?: Promise<{ meetingFilter?: string }>;
-}) {
-  const params = await searchParams;
-  const meetingFilter = normalizeMeetingListFilter(params?.meetingFilter);
+export default async function Home() {
   const session = await getDashboardSession();
 
   if (!session.nickname) {
@@ -78,12 +68,12 @@ export default async function Home({
   return canManageTeamRole(session.team.role) ? (
     <>
       <DashboardCacheHydrator initialData={session} />
-      <OperatorDashboard meetingFilter={meetingFilter} team={session.team} />
+      <OperatorDashboard team={session.team} />
     </>
   ) : (
     <>
       <DashboardCacheHydrator initialData={session} />
-      <MemberDashboard meetingFilter={meetingFilter} team={session.team} />
+      <MemberDashboard team={session.team} />
     </>
   );
 }
@@ -94,13 +84,13 @@ function PublicHome() {
       <header className="border-b border-line bg-white/95 px-4 py-4 backdrop-blur sm:px-6">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3">
           <Brand />
-          <Link
+          <RoutePendingLink
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#FEE500] px-4 text-sm font-bold text-[#191600] transition hover:brightness-95"
             href="/auth/kakao-login"
           >
             <MessageCircle size={17} />
             카카오 로그인
-          </Link>
+          </RoutePendingLink>
         </div>
       </header>
 
@@ -109,20 +99,20 @@ function PublicHome() {
           <h1 className="text-center text-[34px] font-black leading-[1.1] sm:text-[42px]">MoIja</h1>
 
           <div className="mt-8 grid gap-3">
-            <Link
+            <RoutePendingLink
               className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#FEE500] px-5 text-base font-black text-[#191600] shadow-sm transition hover:brightness-95"
               href="/auth/kakao-login"
             >
               <MessageCircle size={20} />
               카카오로 시작하기
-            </Link>
-            <Link
+            </RoutePendingLink>
+            <RoutePendingLink
               className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl border border-line bg-surfaceAlt px-5 text-sm font-black text-secondary transition hover:bg-line"
               href="/auth/password"
             >
               <KeyRound size={18} />
               이메일로 로그인
-            </Link>
+            </RoutePendingLink>
           </div>
         </section>
       </section>
@@ -177,13 +167,13 @@ function OnboardingStart({ nickname }: { nickname: string }) {
                   <option value="book">독서/정기 활동</option>
                 </select>
               </label>
-              <button
+              <SubmitButton
                 className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-base font-bold text-white shadow-card transition hover:bg-[#12843D]"
-                type="submit"
+                pendingLabel="팀 생성 중"
               >
                 <Plus size={18} />
                 팀 만들고 Owner로 시작
-              </button>
+              </SubmitButton>
             </form>
           </section>
 
@@ -206,13 +196,13 @@ function OnboardingStart({ nickname }: { nickname: string }) {
                   <input className="field-input w-full pl-11" name="inviteCode" placeholder="예: ABCD1234" type="text" />
                 </div>
               </label>
-              <button
+              <SubmitButton
                 className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-navy px-5 text-base font-bold text-white shadow-card transition hover:bg-[#243244]"
-                type="submit"
+                pendingLabel="참여 중"
               >
                 <LogIn size={18} />
                 Member로 참석 시작
-              </button>
+              </SubmitButton>
             </form>
           </section>
         </div>
@@ -222,15 +212,12 @@ function OnboardingStart({ nickname }: { nickname: string }) {
 }
 
 function OperatorDashboard({
-  meetingFilter,
   team
 }: {
-  meetingFilter: MeetingListFilter;
   team: TeamSession;
 }) {
   const nextMeeting = team.meetings[0] ?? null;
   const nextMeetingMetrics = nextMeeting ? getMeetingFocusMetrics(nextMeeting.attendanceSummary) : [];
-  const filteredMeetings = filterDashboardMeetings(team.meetings, meetingFilter);
 
   return (
     <main className="min-h-screen bg-app pb-24 text-ink lg:pb-0">
@@ -263,13 +250,13 @@ function OperatorDashboard({
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <InviteCodeCopyButton inviteCode={team.inviteCode} />
-                <Link
+                <RoutePendingLink
                   className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-card transition hover:bg-[#12843D]"
                   href="/meetings/new"
                 >
                   <Plus size={18} />
                   새 경기
-                </Link>
+                </RoutePendingLink>
               </div>
             </section>
 
@@ -279,23 +266,23 @@ function OperatorDashboard({
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-white/70">오늘/다음 경기 운영</p>
-                      <Link className="mt-1 block truncate text-2xl font-bold" href={`/meetings/${nextMeeting.id}`}>
+                      <RoutePendingLink className="mt-1 block truncate text-2xl font-bold" href={`/meetings/${nextMeeting.id}`}>
                         {nextMeeting.title}
-                      </Link>
+                      </RoutePendingLink>
                       <p className="mt-2 text-sm font-semibold text-white/70">
                         {formatMeetingDateTime(nextMeeting.startsAt)} · {nextMeeting.locationNote ?? "장소 미정"}
                       </p>
                     </div>
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[430px]">
                       {nextMeetingMetrics.map((metric) => (
-                        <Link
+                        <RoutePendingLink
                           className={`min-h-16 rounded-xl px-3 py-2.5 ${operatorActionToneClass(metric.tone)}`}
                           href={`/meetings/${nextMeeting.id}`}
                           key={metric.label}
                         >
                           <span className="block text-[11px] font-bold opacity-75">{metric.label}</span>
                           <span className="mt-1 block text-2xl font-black leading-7">{metric.value}</span>
-                        </Link>
+                        </RoutePendingLink>
                       ))}
                     </div>
                   </div>
@@ -303,38 +290,38 @@ function OperatorDashboard({
                 <div className="grid gap-3 px-4 py-4 sm:px-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
                   <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
                     {getUpcomingMeetingActions(nextMeeting.attendanceSummary).map((action) => (
-                      <Link
+                      <RoutePendingLink
                         className={`rounded-xl px-3 py-2 ${operatorActionToneClass(action.tone)}`}
                         href={`/meetings/${nextMeeting.id}`}
                         key={action.label}
                       >
                         <span className="block text-[11px] font-bold opacity-75">{action.label}</span>
                         <span className="mt-1 block text-lg font-black leading-6">{action.value}</span>
-                      </Link>
+                      </RoutePendingLink>
                     ))}
                   </div>
                   <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[460px]">
-                    <Link
+                    <RoutePendingLink
                       className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-black text-navy"
                       href={`/meetings/${nextMeeting.id}#attendance`}
                     >
                       <ClipboardCheck size={17} />
                       출석 운영
-                    </Link>
-                    <Link
+                    </RoutePendingLink>
+                    <RoutePendingLink
                       className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white/10 px-5 text-sm font-bold text-white"
                       href={`/meetings/${nextMeeting.id}#cycle`}
                     >
                       <Users size={17} />
                       용병/라인업
-                    </Link>
-                    <Link
+                    </RoutePendingLink>
+                    <RoutePendingLink
                       className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white/10 px-5 text-sm font-bold text-white"
                       href={`/meetings/${nextMeeting.id}#attendance`}
                     >
                       <Siren size={17} />
                       노쇼 처리
-                    </Link>
+                    </RoutePendingLink>
                   </div>
                 </div>
               </section>
@@ -350,16 +337,7 @@ function OperatorDashboard({
                   경기별 마감 표시
                 </span>
               </div>
-              <MeetingFilterBar activeFilter={meetingFilter} />
-              <div className="mt-4 grid gap-3">
-                {filteredMeetings.length > 0 ? (
-                  filteredMeetings.map((meeting, index) => (
-                    <MeetingCard key={meeting.id} meeting={meeting} selected={index === 0} />
-                  ))
-                ) : (
-                  <EmptyMeetings />
-                )}
-              </div>
+              <DashboardMeetingList emptyState="operator" meetings={team.meetings} selectFirst />
             </section>
           </section>
         </section>
@@ -370,15 +348,12 @@ function OperatorDashboard({
 }
 
 function MemberDashboard({
-  meetingFilter,
   team
 }: {
-  meetingFilter: MeetingListFilter;
   team: TeamSession;
 }) {
   const nextMeeting = team.meetings[0] ?? null;
   const reliabilityDisplay = getReliabilityDisplay(team.reliability);
-  const filteredMeetings = filterDashboardMeetings(team.meetings, meetingFilter);
 
   return (
     <main className="min-h-screen bg-app pb-24 text-ink lg:pb-0">
@@ -394,9 +369,9 @@ function MemberDashboard({
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="text-sm font-bold text-primary">다음 경기</p>
-                    <Link className="mt-1 block text-2xl font-bold hover:text-primary" href={`/meetings/${nextMeeting.id}`}>
+                    <RoutePendingLink className="mt-1 block text-2xl font-bold hover:text-primary" href={`/meetings/${nextMeeting.id}`}>
                       {nextMeeting.title}
-                    </Link>
+                    </RoutePendingLink>
                     <p className="mt-3 text-sm font-semibold text-secondary">
                       {formatMeetingDateTime(nextMeeting.startsAt)} · {nextMeeting.locationNote ?? "장소 미정"}
                     </p>
@@ -417,20 +392,11 @@ function MemberDashboard({
               />
               <section className="rounded-2xl bg-white p-4 shadow-card">
                 <h2 className="text-lg font-bold">경기 목록</h2>
-                <MeetingFilterBar activeFilter={meetingFilter} />
-                <div className="mt-4 grid gap-3">
-                  {filteredMeetings.length > 0 ? (
-                    filteredMeetings.map((meeting) => (
-                      <MeetingCard key={meeting.id} meeting={meeting} />
-                    ))
-                  ) : (
-                    <EmptyMemberMeetings />
-                  )}
-                </div>
+                <DashboardMeetingList emptyState="member" meetings={team.meetings} />
               </section>
             </div>
           ) : (
-            <EmptyMemberMeetings />
+            <MemberEmptyState />
           )}
         </section>
 
@@ -496,7 +462,7 @@ function NavButton({
   active?: boolean;
 }) {
   return (
-    <Link
+    <RoutePendingLink
       className={`flex h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition lg:justify-start ${
         active ? "bg-[#E8F7EE] text-primary" : "text-secondary hover:bg-surfaceAlt hover:text-ink"
       }`}
@@ -504,7 +470,7 @@ function NavButton({
     >
       <Icon size={18} />
       <span>{label}</span>
-    </Link>
+    </RoutePendingLink>
   );
 }
 
@@ -514,93 +480,13 @@ function AuthActions({ nickname }: { nickname: string }) {
       <span className="inline-flex h-11 items-center rounded-xl border border-line bg-white px-4 text-sm font-semibold text-secondary">
         {nickname}
       </span>
-      <Link
+      <RoutePendingLink
         className="inline-flex h-11 min-w-[96px] items-center justify-center rounded-xl bg-surfaceAlt px-4 text-sm font-semibold text-secondary transition hover:bg-line"
         href="/profile"
       >
         내 정보
-      </Link>
+      </RoutePendingLink>
     </div>
-  );
-}
-
-function MeetingFilterBar({ activeFilter }: { activeFilter: MeetingListFilter }) {
-  return (
-    <nav className="sticky top-0 z-10 -mx-4 mt-4 flex gap-2 overflow-x-auto border-y border-line bg-white px-4 py-2 sm:mx-0 sm:rounded-xl sm:border sm:bg-surfaceAlt">
-      {meetingListFilters.map((filter) => {
-        const active = filter.value === activeFilter;
-        return (
-          <Link
-            className={`inline-flex h-9 shrink-0 items-center rounded-full px-3 text-xs font-black transition ${
-              active ? "bg-ink text-white" : "bg-white text-secondary hover:text-ink"
-            }`}
-            href={filter.value === "upcoming" ? "/" : `/?meetingFilter=${filter.value}`}
-            key={filter.value}
-          >
-            {filter.label}
-          </Link>
-        );
-      })}
-    </nav>
-  );
-}
-
-function MeetingCard({ meeting, selected }: { meeting: DashboardMeeting; selected?: boolean }) {
-  const summary = meeting.attendanceSummary;
-  const focusMetrics = getMeetingFocusMetrics(summary);
-
-  return (
-    <Link
-      className={`rounded-2xl border bg-white p-3.5 transition sm:p-4 ${
-        selected ? "border-primary shadow-card" : "border-line hover:border-lineStrong"
-      }`}
-      href={`/meetings/${meeting.id}`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-base font-black transition sm:text-lg">{meeting.title}</span>
-            {selected ? (
-              <span className="shrink-0 rounded-full bg-[#E8F7EE] px-2.5 py-1 text-[11px] font-bold text-primary">다음</span>
-            ) : null}
-          </div>
-          <p className="mt-1.5 truncate text-sm font-semibold text-secondary">
-            {formatMeetingDateTime(meeting.startsAt)} · {meeting.locationNote ?? "장소 미정"}
-          </p>
-        </div>
-        <span className="shrink-0 rounded-full bg-[#FFF4E5] px-2.5 py-1 text-[11px] font-bold text-warning">
-          {meeting.attendanceClosesAt ? `${formatMeetingDateTime(meeting.attendanceClosesAt)} 마감` : "마감 미정"}
-        </span>
-      </div>
-      <div className="mt-3 grid grid-cols-4 gap-1.5 text-sm font-semibold text-secondary">
-        {focusMetrics.map((metric) => (
-          <MetricPill key={metric.label} label={metric.label} tone={metric.tone} value={metric.value} />
-        ))}
-      </div>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        <TinyMeta label="정원" value={meeting.capacity ? `${meeting.capacity}명` : "미정"} />
-        <TinyMeta label="대기" value={meeting.allowWaitlist ? "허용" : "없음"} />
-        <TinyMeta label="방식" value={attendanceMethodLabel(meeting.attendanceMethod)} />
-        {summary.noShowCount > 0 ? <TinyMeta label="노쇼" value={`${summary.noShowCount}명`} danger /> : null}
-      </div>
-    </Link>
-  );
-}
-
-function MetricPill({ label, value, tone }: { label: string; value: string; tone: DashboardTone }) {
-  return (
-    <div className={`min-w-0 rounded-xl px-2 py-2 ${metricToneClass(tone)}`}>
-      <span className="block truncate text-[10px] font-bold opacity-70">{label}</span>
-      <span className="mt-0.5 block truncate text-base font-black leading-5">{value}</span>
-    </div>
-  );
-}
-
-function TinyMeta({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
-  return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ${danger ? "bg-[#FFF1F1] text-danger" : "bg-surfaceAlt text-secondary"}`}>
-      {label} {value}
-    </span>
   );
 }
 
@@ -622,22 +508,7 @@ function StatusPill({ label, value }: { label: string; value: string }) {
   );
 }
 
-function EmptyMeetings() {
-  return (
-    <div className="rounded-2xl border border-dashed border-lineStrong bg-surfaceAlt p-6 text-center">
-      <p className="text-lg font-bold">아직 등록된 경기가 없습니다</p>
-      <Link
-        className="mt-5 inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-white"
-        href="/meetings/new"
-      >
-        <Plus size={17} />
-        첫 경기 만들기
-      </Link>
-    </div>
-  );
-}
-
-function EmptyMemberMeetings() {
+function MemberEmptyState() {
   return (
     <div className="mt-6 rounded-2xl border border-dashed border-lineStrong bg-surfaceAlt p-6 text-center">
       <p className="text-lg font-bold">예정된 경기가 없습니다</p>
@@ -673,7 +544,7 @@ function MobileBottomNav() {
         const Icon = navIconByLabel[label];
         const active = href === "/";
         return (
-        <Link
+        <RoutePendingLink
           className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-semibold ${
             active ? "text-primary" : "text-muted"
           }`}
@@ -682,7 +553,7 @@ function MobileBottomNav() {
         >
           <Icon size={19} />
           {label}
-        </Link>
+        </RoutePendingLink>
         );
       })}
     </nav>
@@ -701,18 +572,6 @@ function operatorActionToneClass(tone: DashboardTone) {
   return classes[tone];
 }
 
-function metricToneClass(tone: DashboardTone) {
-  const classes: Record<DashboardTone, string> = {
-    success: "bg-[#E8F7EE] text-primary",
-    info: "bg-[#E8F3FF] text-strategy",
-    warning: "bg-[#FFF4E5] text-warning",
-    danger: "bg-[#FFF1F1] text-danger",
-    muted: "bg-surfaceAlt text-secondary"
-  };
-
-  return classes[tone];
-}
-
 function reliabilityToneClass(tone: DashboardTone) {
   const classes: Record<DashboardTone, string> = {
     success: "bg-[#E8F7EE] text-primary",
@@ -723,15 +582,4 @@ function reliabilityToneClass(tone: DashboardTone) {
   };
 
   return classes[tone];
-}
-
-function attendanceMethodLabel(value: string) {
-  const labels: Record<string, string> = {
-    manual: "수동",
-    qr: "QR",
-    gps: "GPS",
-    gps_approval: "GPS 승인"
-  };
-
-  return labels[value] ?? "수동";
 }
