@@ -22,7 +22,7 @@ export default async function EditMeetingPage({
 
   const { data: meeting, error: meetingError } = await supabase
     .from("matches")
-    .select("id, team_id, created_by, title, starts_at, location_note, memo, capacity, allow_waitlist, attendance_method, attendance_closes_at")
+    .select("id, team_id, created_by, title, starts_at, location_note, opponent_name, memo, capacity, allow_waitlist, attendance_method, attendance_closes_at")
     .eq("id", id)
     .maybeSingle();
 
@@ -91,6 +91,16 @@ export default async function EditMeetingPage({
                   defaultValue={"memo" in currentMeeting ? currentMeeting.memo ?? "" : ""}
                 />
               </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold text-secondary">상대팀</span>
+                <input
+                  className="field-input"
+                  name="opponentName"
+                  defaultValue={"opponent_name" in currentMeeting ? currentMeeting.opponent_name ?? "" : ""}
+                  placeholder="상대팀 미정"
+                  type="text"
+                />
+              </label>
             </div>
           </section>
 
@@ -117,7 +127,13 @@ export default async function EditMeetingPage({
                   <Users size={17} />
                   정원
                 </span>
-                <input className="field-input bg-white" min="1" name="capacity" defaultValue={currentMeeting.capacity ?? ""} type="number" />
+                <select className="field-input bg-white" name="capacity" defaultValue={String(currentMeeting.capacity ?? 18)} required>
+                  {Array.from({ length: 15 }, (_, index) => index + 10).map((capacity) => (
+                    <option key={capacity} value={capacity}>
+                      {capacity}명
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="setup-field">
                 <span className="flex items-center gap-2 text-sm font-semibold text-secondary">
@@ -200,6 +216,7 @@ type MeetingRecord = {
   title: string;
   starts_at: string;
   location_note?: string | null;
+  opponent_name?: string | null;
   memo?: string | null;
   capacity: number | null;
   allow_waitlist?: boolean | null;

@@ -104,6 +104,9 @@ function MeetingCard({ meeting, selected }: { meeting: DashboardMeeting; selecte
           <p className="mt-1.5 truncate text-sm font-semibold text-secondary">
             {formatMeetingDateTime(meeting.startsAt)} · {meeting.locationNote ?? "장소 미정"}
           </p>
+          {meeting.opponentName ? (
+            <p className="mt-1 truncate text-xs font-bold text-strategy">vs {meeting.opponentName}</p>
+          ) : null}
         </div>
         <span className="shrink-0 rounded-full bg-[#FFF4E5] px-2.5 py-1 text-[11px] font-bold text-warning">
           {meeting.attendanceClosesAt ? `${formatMeetingDateTime(meeting.attendanceClosesAt)} 마감` : "마감 미정"}

@@ -8,6 +8,7 @@ export type DashboardMeeting = {
   title: string;
   startsAt: string;
   locationNote: string | null;
+  opponentName: string | null;
   capacity: number | null;
   allowWaitlist: boolean;
   attendanceMethod: string;
@@ -31,6 +32,7 @@ export type DashboardMatchRow = {
   starts_at: string;
   created_by: string | null;
   location_note?: string | null;
+  opponent_name?: string | null;
   capacity: number | null;
   allow_waitlist?: boolean | null;
   attendance_method: string;
@@ -48,6 +50,7 @@ export function mapDashboardMeetings(
     title: match.title,
     startsAt: match.starts_at,
     locationNote: "location_note" in match ? match.location_note ?? null : null,
+    opponentName: "opponent_name" in match ? match.opponent_name ?? null : null,
     capacity: match.capacity,
     allowWaitlist: "allow_waitlist" in match ? match.allow_waitlist ?? true : true,
     attendanceMethod: match.attendance_method,

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { PageLoadingProvider } from "@/components/page-loading-provider";
 import { AppQueryProvider } from "@/components/query-provider";
 import { RouteQueryInvalidator } from "@/components/route-query-invalidator";
 import { ToastProvider } from "@/components/toast-provider";
@@ -19,12 +20,14 @@ export default function RootLayout({
     <html lang="ko">
       <body>
         <AppQueryProvider>
-          <ToastProvider>
-            <Suspense fallback={null}>
-              <RouteQueryInvalidator />
-            </Suspense>
-            {children}
-          </ToastProvider>
+          <PageLoadingProvider>
+            <ToastProvider>
+              <Suspense fallback={null}>
+                <RouteQueryInvalidator />
+              </Suspense>
+              {children}
+            </ToastProvider>
+          </PageLoadingProvider>
         </AppQueryProvider>
       </body>
     </html>

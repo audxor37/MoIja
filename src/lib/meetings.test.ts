@@ -15,6 +15,9 @@ test("validates required meeting fields and computes the attendance deadline", (
     placeName: "신림 풋살파크 A구장",
     placeAddress: "서울 관악구",
     capacity: "18",
+    repeatMode: "once",
+    opponentName: "FC 관악",
+    seriesOpponents: [],
     allowWaitlist: "on",
     deadlineHours: "6",
     attendanceMethod: "manual"
@@ -29,7 +32,137 @@ test("validates required meeting fields and computes the attendance deadline", (
     capacity: 18,
     allowWaitlist: true,
     attendanceMethod: "manual",
-    attendanceClosesAt: "2026-07-02T14:00:00+09:00"
+    attendanceClosesAt: "2026-07-02T14:00:00+09:00",
+    deadlineHours: 6,
+    repeatMode: "once",
+    repeatCount: 1,
+    opponentName: "FC 관악",
+    seriesOpponents: ["FC 관악"]
+  });
+});
+
+test("rejects meeting capacity outside the selectable range", () => {
+  const baseInput = {
+    title: "목요일 풋살 정기전",
+    memo: "",
+    startsOn: "2026-07-02",
+    startsAt: "20:00",
+    placeName: "신림 풋살파크",
+    placeAddress: "",
+    repeatMode: "once",
+    opponentName: "",
+    seriesOpponents: [],
+    allowWaitlist: "",
+    deadlineHours: "6",
+    attendanceMethod: "manual"
+  };
+
+  assert.deepEqual(validateMeetingInput({ ...baseInput, capacity: "9" }), {
+    ok: false,
+    message: "정원은 10명부터 24명까지 선택해 주세요."
+  });
+  assert.deepEqual(validateMeetingInput({ ...baseInput, capacity: "25" }), {
+    ok: false,
+    message: "정원은 10명부터 24명까지 선택해 주세요."
+  });
+  assert.deepEqual(validateMeetingInput({ ...baseInput, capacity: "" }), {
+    ok: false,
+    message: "정원은 10명부터 24명까지 선택해 주세요."
+  });
+});
+
+test("normalizes weekly recurring meeting opponents for the selected round count", () => {
+  const result = validateMeetingInput({
+    title: "목요일 풋살 정기전",
+    memo: "",
+    startsOn: "",
+    weeklyStartOn: "2026-06-29",
+    weeklyWeekday: "4",
+    startsAt: "20:00",
+    placeName: "신림 풋살파크",
+    placeAddress: "",
+    capacity: "18",
+    repeatMode: "weekly",
+    repeatCount: "5",
+    opponentName: "FC 기본",
+    seriesOpponents: ["FC 1", "", " FC 3 ", "", "FC 5", "FC 6", "", ""],
+    allowWaitlist: "on",
+    deadlineHours: "12",
+    attendanceMethod: "manual"
+  });
+
+  assert.equal(result.ok, true);
+  if (!result.ok) {
+    return;
+  }
+
+  assert.equal(result.repeatMode, "weekly");
+  assert.equal(result.repeatCount, 5);
+  assert.equal(result.startsAt, "2026-07-02T20:00:00+09:00");
+  assert.equal(result.opponentName, "FC 1");
+  assert.deepEqual(result.seriesOpponents, ["FC 1", null, "FC 3", null, "FC 5"]);
+});
+
+test("rejects weekly recurring meetings without a weekday schedule", () => {
+  const baseInput = {
+    title: "목요일 풋살 정기전",
+    memo: "",
+    startsOn: "",
+    weeklyStartOn: "2026-06-29",
+    startsAt: "20:00",
+    placeName: "신림 풋살파크",
+    placeAddress: "",
+    capacity: "18",
+    repeatMode: "weekly",
+    repeatCount: "5",
+    opponentName: "",
+    seriesOpponents: [],
+    allowWaitlist: "on",
+    deadlineHours: "12",
+    attendanceMethod: "manual"
+  };
+
+  assert.deepEqual(validateMeetingInput({ ...baseInput, weeklyWeekday: "" }), {
+    ok: false,
+    message: "반복 경기의 시작 주와 요일을 선택해 주세요."
+  });
+  assert.deepEqual(validateMeetingInput({ ...baseInput, weeklyWeekday: "7" }), {
+    ok: false,
+    message: "반복 경기의 시작 주와 요일을 선택해 주세요."
+  });
+});
+
+test("defaults weekly recurring meetings to eight rounds and rejects invalid selected counts", () => {
+  const baseInput = {
+    title: "목요일 풋살 정기전",
+    memo: "",
+    startsOn: "2026-07-02",
+    startsAt: "20:00",
+    placeName: "신림 풋살파크",
+    placeAddress: "",
+    capacity: "18",
+    repeatMode: "weekly",
+    opponentName: "FC 기본",
+    seriesOpponents: ["FC 1", "", "FC 3"],
+    allowWaitlist: "on",
+    deadlineHours: "12",
+    attendanceMethod: "manual"
+  };
+
+  const defaultedResult = validateMeetingInput({ ...baseInput, repeatCount: "" });
+  assert.equal(defaultedResult.ok, true);
+  if (defaultedResult.ok) {
+    assert.equal(defaultedResult.repeatCount, 8);
+    assert.equal(defaultedResult.seriesOpponents.length, 8);
+  }
+
+  assert.deepEqual(validateMeetingInput({ ...baseInput, repeatCount: "1" }), {
+    ok: false,
+    message: "반복 주차는 2주부터 12주까지 선택해 주세요."
+  });
+  assert.deepEqual(validateMeetingInput({ ...baseInput, repeatCount: "13" }), {
+    ok: false,
+    message: "반복 주차는 2주부터 12주까지 선택해 주세요."
   });
 });
 
@@ -54,6 +187,9 @@ test("rejects meetings without a title", () => {
     placeName: "신림 풋살파크",
     placeAddress: "",
     capacity: "18",
+    repeatMode: "once",
+    opponentName: "",
+    seriesOpponents: [],
     allowWaitlist: "",
     deadlineHours: "6",
     attendanceMethod: "manual"

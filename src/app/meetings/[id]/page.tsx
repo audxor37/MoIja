@@ -34,7 +34,7 @@ export default async function MeetingDetailPage({
 
   const { data: meeting } = await supabase
     .from("matches")
-    .select("id, team_id, created_by, title, starts_at, location_note, memo, capacity, allow_waitlist, attendance_method, attendance_closes_at")
+    .select("id, team_id, created_by, title, starts_at, location_note, opponent_name, memo, capacity, allow_waitlist, attendance_method, attendance_closes_at")
     .eq("id", id)
     .maybeSingle();
 
@@ -179,6 +179,9 @@ export default async function MeetingDetailPage({
               경기 상세
             </span>
             <h1 className="mt-2 truncate text-2xl font-bold leading-8 sm:text-[30px] sm:leading-10">{currentMeeting.title}</h1>
+            {currentMeeting.opponent_name ? (
+              <p className="mt-1 truncate text-sm font-bold text-strategy">vs {currentMeeting.opponent_name}</p>
+            ) : null}
           </div>
           {canManageAttendance ? <MeetingAdminMenu meetingId={currentMeeting.id} /> : null}
         </header>
@@ -218,6 +221,9 @@ export default async function MeetingDetailPage({
               <div className="grid gap-3 p-4 sm:p-5">
                 <div className="grid gap-2 text-sm sm:grid-cols-2">
                   <InfoRow icon={Timer} label="일정" value={formatMeetingDateTime(currentMeeting.starts_at)} />
+                  {currentMeeting.opponent_name ? (
+                    <InfoRow icon={UserCheck} label="상대팀" value={`vs ${currentMeeting.opponent_name}`} />
+                  ) : null}
                   <InfoRow icon={MapPin} label="장소" value={currentMeeting.location_note ?? "장소 미정"} />
                   <InfoRow icon={Users} label="정원" value={currentMeeting.capacity ? `${currentMeeting.capacity}명` : "미정"} />
                   <InfoRow icon={ClipboardCheck} label="신청 마감" value={currentMeeting.attendance_closes_at ? formatMeetingDateTime(currentMeeting.attendance_closes_at) : "마감 미정"} />
@@ -321,6 +327,7 @@ type MeetingRecord = {
   title: string;
   starts_at: string;
   location_note: string | null;
+  opponent_name: string | null;
   memo: string | null;
   capacity: number | null;
   allow_waitlist: boolean;
