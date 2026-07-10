@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   buildRespondToMeetingAttendanceRpcArgs,
   buildCreateMeetingRpcArgs,
+  buildCreateMatchSeriesRpcArgs,
   mapRespondToMeetingAttendanceRpcError,
   MANAGER_TEAM_MEMBERSHIP_SELECT,
   toManagerTeam
@@ -11,6 +12,38 @@ import {
 test("manager team lookup uses direct team_id instead of a relationship select", () => {
   assert.equal(MANAGER_TEAM_MEMBERSHIP_SELECT, "team_id, role");
   assert.equal(MANAGER_TEAM_MEMBERSHIP_SELECT.includes("teams("), false);
+});
+
+test("builds the create match series rpc payload with recurrence and opponents", () => {
+  assert.deepEqual(
+    buildCreateMatchSeriesRpcArgs({
+      title: "Morning futsal",
+      startsAt: "2026-07-02T20:00:00+09:00",
+      capacity: 18,
+      attendanceMethod: "manual",
+      attendanceClosesAt: "2026-07-02T14:00:00+09:00",
+      deadlineHours: 6,
+      locationNote: "Court A",
+      memo: null,
+      allowWaitlist: true,
+      repeatMode: "weekly",
+      repeatCount: 5,
+      opponentName: "FC 1",
+      seriesOpponents: ["FC 1", null, "FC 3", null, "FC 5"]
+    }),
+    {
+      input_title: "Morning futsal",
+      input_starts_at: "2026-07-02T20:00:00+09:00",
+      input_capacity: 18,
+      input_attendance_method: "manual",
+      input_deadline_hours: 6,
+      input_location_note: "Court A",
+      input_memo: null,
+      input_allow_waitlist: true,
+      input_repeat_count: 5,
+      input_opponent_names: ["FC 1", null, "FC 3", null, "FC 5"]
+    }
+  );
 });
 
 test("maps an owner or manager membership row to the writable team", () => {
@@ -30,9 +63,14 @@ test("builds the create meeting rpc payload without client-side team lookup fiel
       capacity: 18,
       attendanceMethod: "manual",
       attendanceClosesAt: "2026-07-02T14:00:00+09:00",
+      deadlineHours: 6,
       locationNote: "Court A",
       memo: null,
-      allowWaitlist: true
+      allowWaitlist: true,
+      repeatMode: "once",
+      repeatCount: 1,
+      opponentName: null,
+      seriesOpponents: [null]
     }),
     {
       input_title: "Morning futsal",

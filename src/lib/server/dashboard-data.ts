@@ -68,7 +68,7 @@ export const getDashboardSession = cache(async function getDashboardSession(): P
       .eq("team_id", joinedTeam.id);
     const { data: matches, error: matchesError } = await supabase
       .from("matches")
-      .select("id, title, starts_at, created_by, location_note, capacity, allow_waitlist, attendance_method, attendance_closes_at")
+      .select("id, title, starts_at, created_by, location_note, opponent_name, capacity, allow_waitlist, attendance_method, attendance_closes_at")
       .eq("team_id", joinedTeam.id)
       .order("starts_at", { ascending: true })
       .limit(DASHBOARD_MEETING_LIMIT);

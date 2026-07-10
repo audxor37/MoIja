@@ -1,9 +1,10 @@
 "use client";
 
-import { useTransition, type AnchorHTMLAttributes, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { useEffect, useTransition, type AnchorHTMLAttributes, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { usePageLoading } from "@/components/page-loading-provider";
 
 export function InlineSpinner({ className = "" }: { className?: string }) {
   return <Loader2 aria-hidden="true" className={`shrink-0 animate-spin ${className}`} size={16} />;
@@ -34,6 +35,16 @@ type SubmitButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 export function SubmitButton({ children, className = "", pendingLabel, disabled, ...props }: SubmitButtonProps) {
   const { pending } = useFormStatus();
+  const { showPageLoading, hidePageLoading } = usePageLoading();
+
+  useEffect(() => {
+    if (pending) {
+      showPageLoading();
+      return;
+    }
+
+    hidePageLoading();
+  }, [hidePageLoading, pending, showPageLoading]);
 
   return (
     <button
@@ -42,9 +53,7 @@ export function SubmitButton({ children, className = "", pendingLabel, disabled,
       type="submit"
       {...props}
     >
-      <PendingButtonContent pending={pending} pendingLabel={pendingLabel}>
-        {children}
-      </PendingButtonContent>
+      {children}
     </button>
   );
 }
@@ -64,6 +73,13 @@ export function RoutePendingLink({
 }: RoutePendingLinkProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const { showPageLoading, hidePageLoading } = usePageLoading();
+
+  useEffect(() => {
+    if (!isPending) {
+      hidePageLoading();
+    }
+  }, [hidePageLoading, isPending]);
 
   return (
     <a
@@ -85,15 +101,14 @@ export function RoutePendingLink({
         }
 
         event.preventDefault();
+        showPageLoading();
         startTransition(() => {
           router.push(href);
         });
       }}
       {...props}
     >
-      <PendingButtonContent pending={isPending} pendingLabel={pendingLabel}>
-        {children}
-      </PendingButtonContent>
+      {children}
     </a>
   );
 }

@@ -269,6 +269,9 @@ function OperatorDashboard({
                       <RoutePendingLink className="mt-1 block truncate text-2xl font-bold" href={`/meetings/${nextMeeting.id}`}>
                         {nextMeeting.title}
                       </RoutePendingLink>
+                      {nextMeeting.opponentName ? (
+                        <p className="mt-1 truncate text-sm font-bold text-white/80">vs {nextMeeting.opponentName}</p>
+                      ) : null}
                       <p className="mt-2 text-sm font-semibold text-white/70">
                         {formatMeetingDateTime(nextMeeting.startsAt)} · {nextMeeting.locationNote ?? "장소 미정"}
                       </p>
@@ -372,6 +375,9 @@ function MemberDashboard({
                     <RoutePendingLink className="mt-1 block text-2xl font-bold hover:text-primary" href={`/meetings/${nextMeeting.id}`}>
                       {nextMeeting.title}
                     </RoutePendingLink>
+                    {nextMeeting.opponentName ? (
+                      <p className="mt-1 text-sm font-bold text-strategy">vs {nextMeeting.opponentName}</p>
+                    ) : null}
                     <p className="mt-3 text-sm font-semibold text-secondary">
                       {formatMeetingDateTime(nextMeeting.startsAt)} · {nextMeeting.locationNote ?? "장소 미정"}
                     </p>

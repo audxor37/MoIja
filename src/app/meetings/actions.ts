@@ -10,6 +10,7 @@ import {
 } from "@/lib/attendance";
 import type { ActionResult } from "@/lib/action-result";
 import {
+  buildCreateMatchSeriesRpcArgs,
   buildCreateMatchWithDefaultAttendancesRpcArgs,
   buildRespondToMeetingAttendanceRpcArgs,
   mapRespondToMeetingAttendanceRpcError
@@ -46,6 +47,10 @@ function formValue(formData: FormData, name: string) {
   return String(formData.get(name) ?? "");
 }
 
+function formValues(formData: FormData, name: string) {
+  return formData.getAll(name).map((value) => String(value ?? ""));
+}
+
 function redirectWithMeetingError(key: keyof typeof meetingErrorParams, path = "/"): never {
   redirect(`${path}?${meetingErrorParams[key]}`);
 }
@@ -71,10 +76,16 @@ function readMeetingForm(formData: FormData) {
     title: formValue(formData, "title"),
     memo: formValue(formData, "memo"),
     startsOn: formValue(formData, "startsOn"),
+    weeklyStartOn: formValue(formData, "weeklyStartOn"),
+    weeklyWeekday: formValue(formData, "weeklyWeekday"),
     startsAt: formValue(formData, "startsAt"),
     placeName: formValue(formData, "placeName"),
     placeAddress: formValue(formData, "placeAddress"),
     capacity: formValue(formData, "capacity"),
+    repeatMode: formValue(formData, "repeatMode"),
+    repeatCount: formValue(formData, "repeatCount"),
+    opponentName: formValue(formData, "opponentName"),
+    seriesOpponents: formValues(formData, "seriesOpponents"),
     allowWaitlist: formValue(formData, "allowWaitlist"),
     deadlineHours: formValue(formData, "deadlineHours"),
     attendanceMethod: formValue(formData, "attendanceMethod")
@@ -192,6 +203,23 @@ export async function createMeeting(formData: FormData) {
     created_by: user.id
   };
 
+  const { error: seriesRpcError } = await supabase.rpc(
+    "create_match_series_with_default_attendances",
+    buildCreateMatchSeriesRpcArgs(input)
+  );
+
+  if (!seriesRpcError) {
+    revalidatePath("/");
+    redirectWithMeetingMessage(input.repeatCount > 1 ? `${input.repeatCount}주 반복 경기를 만들었습니다.` : "경기를 만들었습니다.");
+  }
+
+  if (input.repeatCount > 1) {
+    console.error("[meetings:create] Match series RPC failed.", seriesRpcError);
+    redirectWithMeetingError("create", "/meetings/new");
+  }
+
+  console.warn("[meetings:create] Series RPC unavailable; trying legacy RPC.", seriesRpcError);
+
   const { error: rpcError } = await supabase.rpc(
     "create_match_with_default_attendances",
     buildCreateMatchWithDefaultAttendancesRpcArgs(input)
@@ -210,7 +238,8 @@ export async function createMeeting(formData: FormData) {
       ...baseMeeting,
       location_note: input.locationNote,
       memo: input.memo,
-      allow_waitlist: input.allowWaitlist
+      allow_waitlist: input.allowWaitlist,
+      opponent_name: input.opponentName
     })
     .select("id")
     .single();
@@ -332,7 +361,8 @@ export async function updateMeeting(formData: FormData) {
       ...baseMeeting,
       location_note: input.locationNote,
       memo: input.memo,
-      allow_waitlist: input.allowWaitlist
+      allow_waitlist: input.allowWaitlist,
+      opponent_name: input.opponentName
     })
     .eq("id", meetingId)
     .eq("team_id", meeting.team_id);

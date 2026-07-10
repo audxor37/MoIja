@@ -23,6 +23,21 @@ export function buildCreateMeetingRpcArgs(input: ValidMeetingInput) {
   };
 }
 
+export function buildCreateMatchSeriesRpcArgs(input: ValidMeetingInput) {
+  return {
+    input_title: input.title,
+    input_starts_at: input.startsAt,
+    input_capacity: input.capacity,
+    input_attendance_method: input.attendanceMethod,
+    input_deadline_hours: input.deadlineHours,
+    input_location_note: input.locationNote,
+    input_memo: input.memo,
+    input_allow_waitlist: input.allowWaitlist,
+    input_repeat_count: input.repeatCount,
+    input_opponent_names: input.seriesOpponents
+  };
+}
+
 export function toManagerTeam(membership: ManagerTeamMembershipRow | null) {
   if (!membership?.team_id) {
     return null;
