@@ -61,12 +61,12 @@ export function MeetingCreateForm({ action }: MeetingCreateFormProps) {
   };
 
   return (
-    <form action={action} className="grid gap-5 rounded-2xl bg-white p-5 shadow-card sm:p-6">
+    <form action={action} className="grid gap-5 rounded-2xl border border-appLine bg-appCard p-5 shadow-card sm:p-6">
       <section>
         <SectionHeader eyebrow="기본 정보" title="경기 정보" />
         <div className="mt-5 grid gap-4">
           <label className="grid gap-2">
-            <span className="text-sm font-semibold text-secondary">경기 이름</span>
+            <span className="text-sm font-semibold text-appTextSoft">경기 이름</span>
             <input
               className="field-input"
               name="title"
@@ -78,7 +78,7 @@ export function MeetingCreateForm({ action }: MeetingCreateFormProps) {
           <label className="grid gap-2">
             <span className="text-sm font-semibold text-secondary">운영 메모</span>
             <textarea
-              className="min-h-32 resize-none rounded-[14px] border border-line bg-white px-4 py-3 text-sm font-semibold leading-6 outline-none transition placeholder:text-disabled focus:border-strategy focus:ring-4 focus:ring-[#2563EB]/10"
+              className="min-h-32 resize-none rounded-xl border border-appLine bg-appCardSoft px-4 py-3 text-sm font-semibold leading-6 text-appText outline-none transition placeholder:text-appMuted focus:border-lime focus:ring-4 focus:ring-lime/10"
               name="memo"
               placeholder="준비물, 팀 배정, 우천 안내"
             />
@@ -93,11 +93,11 @@ export function MeetingCreateForm({ action }: MeetingCreateFormProps) {
             ["once", "1회성 경기", "선택한 날짜에 한 경기만 만듭니다."],
             ["weekly", "매주 반복", "같은 요일과 시간으로 원하는 주차만큼 만듭니다."]
           ].map(([value, label, description]) => (
-            <label className="grid cursor-pointer gap-2 rounded-2xl border border-line bg-white p-4 text-sm" key={value}>
+            <label className="grid cursor-pointer gap-2 rounded-2xl border border-appLine bg-appCardSoft p-4 text-sm text-appText" key={value}>
               <span className="flex items-center gap-2 font-bold">
                 <input
                   checked={repeatMode === value}
-                  className="h-4 w-4 accent-primary"
+                className="h-4 w-4 accent-lime"
                   name="repeatMode"
                   onChange={() => setRepeatMode(value as "once" | "weekly")}
                   type="radio"
@@ -106,18 +106,18 @@ export function MeetingCreateForm({ action }: MeetingCreateFormProps) {
                 <Repeat2 size={16} />
                 {label}
               </span>
-              <span className="text-xs font-semibold leading-5 text-secondary">{description}</span>
+              <span className="text-xs font-semibold leading-5 text-appTextSoft">{description}</span>
             </label>
           ))}
         </div>
         <input name="startsOn" type="hidden" value={repeatMode === "weekly" ? "" : startsOn} />
         {repeatMode === "weekly" ? (
-          <div className="mt-4 grid gap-3 rounded-2xl border border-line bg-surfaceAlt p-4">
+          <div className="mt-4 grid gap-3 rounded-2xl border border-appLine bg-appCardSoft p-4">
             <div className="grid gap-3 sm:grid-cols-[1fr_1fr_120px]">
               <label className="grid gap-2">
-                <span className="text-sm font-semibold text-secondary">반복 시작 주</span>
+                <span className="text-sm font-semibold text-appTextSoft">반복 시작 주</span>
                 <input
-                  className="field-input bg-white"
+                  className="field-input"
                   name="weeklyStartOn"
                   onChange={(event) => setWeeklyStartOn(event.target.value)}
                   required
@@ -126,9 +126,9 @@ export function MeetingCreateForm({ action }: MeetingCreateFormProps) {
                 />
               </label>
               <label className="grid gap-2">
-                <span className="text-sm font-semibold text-secondary">요일</span>
+                <span className="text-sm font-semibold text-appTextSoft">요일</span>
                 <select
-                  className="field-input bg-white"
+                  className="field-input"
                   name="weeklyWeekday"
                   onChange={(event) => setWeeklyWeekday(event.target.value)}
                   value={weeklyWeekday}
@@ -141,14 +141,14 @@ export function MeetingCreateForm({ action }: MeetingCreateFormProps) {
                 </select>
               </label>
               <label className="grid gap-2">
-                <span className="text-sm font-semibold text-secondary">시간</span>
-                <input className="field-input bg-white" name="startsAt" onChange={(event) => setStartsAt(event.target.value)} required type="time" />
+                <span className="text-sm font-semibold text-appTextSoft">시간</span>
+                <input className="field-input" name="startsAt" onChange={(event) => setStartsAt(event.target.value)} required type="time" />
               </label>
             </div>
             <label className="grid gap-2 sm:grid-cols-[120px_1fr] sm:items-center">
-              <span className="text-sm font-semibold text-secondary">반복 주차</span>
+              <span className="text-sm font-semibold text-appTextSoft">반복 주차</span>
               <select
-                className="field-input bg-white"
+                className="field-input"
                 name="repeatCount"
                 onChange={(event) => setRepeatCount(Number(event.target.value))}
                 value={repeatCount}
@@ -160,22 +160,22 @@ export function MeetingCreateForm({ action }: MeetingCreateFormProps) {
                 ))}
               </select>
             </label>
-            <p className="text-xs font-semibold leading-5 text-secondary">
+            <p className="text-xs font-semibold leading-5 text-appTextSoft">
               첫 경기는 {firstWeeklyStartsOn ? formatRoundLabel(firstWeeklyStartsOn, startsAt, 0) : "시작 주와 요일 선택 후"}에 생성됩니다.
             </p>
           </div>
         ) : (
-          <div className="mt-4 grid gap-3 rounded-2xl border border-line bg-surfaceAlt p-4 sm:grid-cols-2">
+          <div className="mt-4 grid gap-3 rounded-2xl border border-appLine bg-appCardSoft p-4 sm:grid-cols-2">
             <input name="repeatCount" type="hidden" value="1" />
             <input name="weeklyStartOn" type="hidden" value="" />
             <input name="weeklyWeekday" type="hidden" value="" />
             <label className="grid gap-2">
-              <span className="text-sm font-semibold text-secondary">경기 날짜</span>
-              <input className="field-input bg-white" onChange={(event) => setStartsOn(event.target.value)} required type="date" value={startsOn} />
+              <span className="text-sm font-semibold text-appTextSoft">경기 날짜</span>
+              <input className="field-input" onChange={(event) => setStartsOn(event.target.value)} required type="date" value={startsOn} />
             </label>
             <label className="grid gap-2">
-              <span className="text-sm font-semibold text-secondary">시간</span>
-              <input className="field-input bg-white" name="startsAt" onChange={(event) => setStartsAt(event.target.value)} required type="time" />
+              <span className="text-sm font-semibold text-appTextSoft">시간</span>
+              <input className="field-input" name="startsAt" onChange={(event) => setStartsAt(event.target.value)} required type="time" />
             </label>
           </div>
         )}

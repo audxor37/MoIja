@@ -5,7 +5,17 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        app: "#F8FAFC",
+        app: "#050A13",
+        appPanel: "#0B1220",
+        appCard: "#111A2B",
+        appCardSoft: "#17223A",
+        appLine: "#22304A",
+        appLineStrong: "#33415F",
+        appText: "#F8FAFC",
+        appTextSoft: "#B6C1D5",
+        appMuted: "#7E8AA3",
+        lime: "#D7FF5C",
+        cobalt: "#4F63FF",
         surface: "#FFFFFF",
         surfaceAlt: "#F2F4F6",
         line: "#E5E8EB",

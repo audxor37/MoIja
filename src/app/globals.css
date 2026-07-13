@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
-  background: #f8fafc;
+  color-scheme: dark;
+  background: #050a13;
 }
 
 * {
@@ -18,8 +18,10 @@ html {
 
 body {
   margin: 0;
-  background: #f8fafc;
-  color: #191f28;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(79, 99, 255, 0.16), transparent 34rem),
+    #050a13;
+  color: #f8fafc;
   font-family:
     Pretendard,
     "Noto Sans KR",
@@ -41,10 +43,10 @@ textarea {
 
 @layer components {
   .field-input {
-    @apply h-[52px] rounded-[14px] border border-line bg-white px-4 text-sm font-semibold text-ink outline-none transition placeholder:text-disabled focus:border-strategy focus:ring-4 focus:ring-[#2563EB]/10;
+    @apply h-[52px] rounded-xl border border-appLine bg-appCard px-4 text-sm font-semibold text-appText outline-none transition placeholder:text-appMuted focus:border-lime focus:ring-4 focus:ring-lime/10;
   }
 
   .setup-field {
-    @apply grid gap-3 rounded-2xl border border-line bg-surfaceAlt p-4;
+    @apply grid gap-3 rounded-2xl border border-appLine bg-appCard p-4;
   }
 }

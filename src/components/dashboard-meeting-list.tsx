@@ -58,14 +58,14 @@ function MeetingFilterBar({
   onChange: (filter: MeetingListFilter) => void;
 }) {
   return (
-    <nav className="sticky top-0 z-10 -mx-4 mt-4 flex gap-2 overflow-x-auto border-y border-line bg-white px-4 py-2 sm:mx-0 sm:rounded-xl sm:border sm:bg-surfaceAlt">
+    <nav className="sticky top-0 z-10 -mx-4 mt-4 flex gap-2 overflow-x-auto border-y border-appLine bg-app px-4 py-2 sm:mx-0 sm:rounded-xl sm:border sm:bg-appCard">
       {meetingListFilters.map((filter) => {
         const active = filter.value === activeFilter;
         return (
           <button
             aria-pressed={active}
             className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-black transition disabled:cursor-not-allowed ${
-              active ? "bg-ink text-white" : "bg-white text-secondary hover:text-ink"
+              active ? "bg-lime text-app" : "bg-appCardSoft text-appTextSoft hover:text-white"
             }`}
             disabled={isPending && active}
             key={filter.value}
@@ -88,27 +88,27 @@ function MeetingCard({ meeting, selected }: { meeting: DashboardMeeting; selecte
 
   return (
     <RoutePendingLink
-      className={`rounded-2xl border bg-white p-3.5 transition sm:p-4 ${
-        selected ? "border-primary shadow-card" : "border-line hover:border-lineStrong"
+      className={`rounded-2xl border bg-appCard p-3.5 transition sm:p-4 ${
+        selected ? "border-lime shadow-card" : "border-appLine hover:border-appLineStrong"
       }`}
       href={`/meetings/${meeting.id}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-base font-black transition sm:text-lg">{meeting.title}</span>
+            <span className="truncate text-base font-black text-white transition sm:text-lg">{meeting.title}</span>
             {selected ? (
-              <span className="shrink-0 rounded-full bg-[#E8F7EE] px-2.5 py-1 text-[11px] font-bold text-primary">다음</span>
+              <span className="shrink-0 rounded-full bg-lime px-2.5 py-1 text-[11px] font-bold text-app">다음</span>
             ) : null}
           </div>
-          <p className="mt-1.5 truncate text-sm font-semibold text-secondary">
+          <p className="mt-1.5 truncate text-sm font-semibold text-appTextSoft">
             {formatMeetingDateTime(meeting.startsAt)} · {meeting.locationNote ?? "장소 미정"}
           </p>
           {meeting.opponentName ? (
             <p className="mt-1 truncate text-xs font-bold text-strategy">vs {meeting.opponentName}</p>
           ) : null}
         </div>
-        <span className="shrink-0 rounded-full bg-[#FFF4E5] px-2.5 py-1 text-[11px] font-bold text-warning">
+        <span className="shrink-0 rounded-full bg-appCardSoft px-2.5 py-1 text-[11px] font-bold text-lime">
           {meeting.attendanceClosesAt ? `${formatMeetingDateTime(meeting.attendanceClosesAt)} 마감` : "마감 미정"}
         </span>
       </div>
@@ -138,7 +138,7 @@ function MetricPill({ label, value, tone }: { label: string; value: string; tone
 
 function TinyMeta({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ${danger ? "bg-[#FFF1F1] text-danger" : "bg-surfaceAlt text-secondary"}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ${danger ? "bg-[#3A1720] text-danger" : "bg-appCardSoft text-appTextSoft"}`}>
       {label} {value}
     </span>
   );
@@ -146,10 +146,10 @@ function TinyMeta({ label, value, danger = false }: { label: string; value: stri
 
 function EmptyOperatorMeetings() {
   return (
-    <div className="rounded-2xl border border-dashed border-lineStrong bg-surfaceAlt p-6 text-center">
-      <p className="text-lg font-bold">아직 등록된 경기가 없습니다</p>
+    <div className="rounded-2xl border border-dashed border-appLineStrong bg-appCard p-6 text-center">
+      <p className="text-lg font-bold text-white">아직 등록된 경기가 없습니다</p>
       <RoutePendingLink
-        className="mt-5 inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-white"
+        className="mt-5 inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-lime px-5 text-sm font-bold text-app"
         href="/meetings/new"
       >
         <Plus size={17} />
@@ -161,19 +161,19 @@ function EmptyOperatorMeetings() {
 
 function EmptyMemberMeetings() {
   return (
-    <div className="mt-6 rounded-2xl border border-dashed border-lineStrong bg-surfaceAlt p-6 text-center">
-      <p className="text-lg font-bold">예정된 경기가 없습니다</p>
+    <div className="mt-6 rounded-2xl border border-dashed border-appLineStrong bg-appCard p-6 text-center">
+      <p className="text-lg font-bold text-white">예정된 경기가 없습니다</p>
     </div>
   );
 }
 
 function metricToneClass(tone: DashboardTone) {
   const classes: Record<DashboardTone, string> = {
-    success: "bg-[#E8F7EE] text-primary",
-    info: "bg-[#E8F3FF] text-strategy",
-    warning: "bg-[#FFF4E5] text-warning",
-    danger: "bg-[#FFF1F1] text-danger",
-    muted: "bg-surfaceAlt text-secondary"
+    success: "bg-[#183729] text-lime",
+    info: "bg-[#182447] text-cobalt",
+    warning: "bg-[#3A2D16] text-warning",
+    danger: "bg-[#3A1720] text-danger",
+    muted: "bg-appCardSoft text-appTextSoft"
   };
 
   return classes[tone];

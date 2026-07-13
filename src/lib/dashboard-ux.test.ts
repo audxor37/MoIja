@@ -8,11 +8,14 @@ import {
   getUpcomingMeetingActions
 } from "./dashboard-ux";
 
-test("keeps only dashboard navigation items that lead to active screens", () => {
-  assert.deepEqual(
-    getActiveDashboardNavItems().map((item) => item.label),
-    ["홈", "새 경기", "팀", "내 정보"]
-  );
+test("returns demo-aligned bottom navigation items", () => {
+  assert.deepEqual(getActiveDashboardNavItems(), [
+    { label: "홈", href: "/" },
+    { label: "경기", href: "/meetings" },
+    { label: "랭킹", href: "/ranking" },
+    { label: "팀", href: "/team" },
+    { label: "MY", href: "/profile" }
+  ]);
 });
 
 test("builds compact next-match action metrics for operators", () => {

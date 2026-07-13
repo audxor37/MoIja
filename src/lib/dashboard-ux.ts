@@ -1,5 +1,5 @@
 export type DashboardNavItem = {
-  label: "홈" | "새 경기" | "팀" | "내 정보";
+  label: "홈" | "경기" | "랭킹" | "팀" | "MY";
   href: string;
 };
 
@@ -27,9 +27,10 @@ export type DashboardTone = "success" | "info" | "warning" | "danger" | "muted";
 export function getActiveDashboardNavItems(): DashboardNavItem[] {
   return [
     { label: "홈", href: "/" },
-    { label: "새 경기", href: "/meetings/new" },
+    { label: "경기", href: "/meetings" },
+    { label: "랭킹", href: "/ranking" },
     { label: "팀", href: "/team" },
-    { label: "내 정보", href: "/profile" }
+    { label: "MY", href: "/profile" }
   ];
 }
 
