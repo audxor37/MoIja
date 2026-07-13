@@ -78,22 +78,23 @@ export function TeamManagementPanel({
   });
 
   return (
-    <section className="mx-auto grid max-w-6xl gap-6 px-4 py-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+    <section className="mt-6 grid gap-5">
       <aside className="grid gap-4">
-        <section className="rounded-2xl bg-white p-5 shadow-card">
+        <section className="rounded-2xl border border-appLine bg-appCard p-5 shadow-card">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#E8F7EE] text-primary">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-appCardSoft text-lime">
               <Users size={22} />
             </div>
             <div>
-              <p className="text-sm font-bold text-primary">{teamRoleLabel(actorRole)}</p>
-              <h1 className="text-2xl font-bold">{team.name}</h1>
+              <p className="text-sm font-bold text-lime">{teamRoleLabel(actorRole)}</p>
+              <h1 className="text-2xl font-bold text-white">{team.name}</h1>
             </div>
           </div>
+          <p className="mt-3 text-sm font-bold text-appTextSoft">축구를 더 오래, 더 즐겁게</p>
           <div className="mt-5 grid gap-2">
             <InviteCodeCopyButton inviteCode={inviteCode} />
             <button
-              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-bold text-secondary disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-appLine bg-appCardSoft px-4 text-sm font-bold text-appTextSoft disabled:cursor-not-allowed disabled:opacity-50"
               disabled={inviteMutation.isPending}
               onClick={() => inviteMutation.mutate()}
               type="button"
@@ -107,28 +108,28 @@ export function TeamManagementPanel({
         </section>
       </aside>
 
-      <section className="rounded-2xl bg-white p-5 shadow-card">
+      <section className="rounded-2xl border border-appLine bg-appCard p-5 shadow-card">
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold">멤버 목록</h2>
+              <h2 className="text-xl font-bold text-white">멤버 목록</h2>
               <HelpIcon title="역할">
                 Owner와 Manager는 팀과 경기를 관리합니다. Coach는 라인업을 관리하고 Member는 본인 참석 응답을 남깁니다.
               </HelpIcon>
             </div>
           </div>
-          <Users className="text-primary" size={24} />
+          <Users className="text-lime" size={24} />
         </div>
 
         <div className="mt-5 grid gap-3">
           {members.map((member) => {
             const isPending = roleMutation.isPending && roleMutation.variables?.memberId === member.id;
             return (
-              <article className="rounded-2xl border border-line p-4" key={member.id}>
+              <article className="rounded-2xl border border-appLine bg-appCardSoft p-4" key={member.id}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="font-bold">{member.nickname}</p>
-                    <p className="mt-1 text-xs font-semibold text-muted">{teamRoleLabel(member.role)}</p>
+                    <p className="font-bold text-white">{member.nickname}</p>
+                    <p className="mt-1 text-xs font-semibold text-appMuted">{teamRoleLabel(member.role)}</p>
                   </div>
                   <div className="flex gap-2">
                     <select
@@ -154,9 +155,9 @@ export function TeamManagementPanel({
                         </option>
                       ))}
                     </select>
-                    <span className="inline-flex h-11 min-w-14 items-center justify-center text-xs font-bold text-muted">
+                    <span className="inline-flex h-11 min-w-14 items-center justify-center text-xs font-bold text-appMuted">
                       {isPending ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-primary">
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-lime">
                           <PendingButtonContent pending pendingLabel="저장 중">
                             저장
                           </PendingButtonContent>

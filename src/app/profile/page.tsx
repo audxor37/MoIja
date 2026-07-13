@@ -1,4 +1,5 @@
-import { ArrowLeft, LogOut, ShieldCheck, Users } from "lucide-react";
+import { LogOut, ShieldCheck, Users } from "lucide-react";
+import { AppShell, ScreenCard, StatCard, TopBar } from "@/components/app-shell";
 import { RoutePendingLink, SubmitButton } from "@/components/pending-ui";
 import { getDashboardSession } from "@/lib/server/dashboard-data";
 import { teamRoleLabel } from "@/lib/team-management";
@@ -10,82 +11,74 @@ export default async function ProfilePage() {
 
   if (!session.nickname) {
     return (
-      <main className="min-h-screen bg-app px-4 py-6 text-ink">
-        <section className="mx-auto max-w-md rounded-2xl bg-white p-5 shadow-card">
-          <ShieldCheck className="text-muted" size={24} />
-          <h1 className="mt-4 text-2xl font-bold">내 정보</h1>
-          <RoutePendingLink className="mt-5 inline-flex h-12 items-center justify-center rounded-xl bg-primary px-5 text-sm font-bold text-white" href="/">
+      <AppShell activePath="/profile">
+        <TopBar title="내 정보" backHref="/" />
+        <ScreenCard className="mt-6">
+          <ShieldCheck className="text-appMuted" size={24} />
+          <h1 className="mt-4 text-2xl font-bold text-white">내 정보</h1>
+          <RoutePendingLink className="mt-5 inline-flex h-12 items-center justify-center rounded-xl bg-lime px-5 text-sm font-bold text-app" href="/">
             홈으로
           </RoutePendingLink>
-        </section>
-      </main>
+        </ScreenCard>
+      </AppShell>
     );
   }
 
   return (
-    <main className="min-h-screen bg-app px-4 py-5 text-ink sm:px-6 lg:py-8">
-      <section className="mx-auto max-w-2xl">
-        <RoutePendingLink
-          className="inline-flex h-11 items-center gap-2 rounded-xl bg-white px-4 text-sm font-bold text-secondary shadow-soft transition hover:bg-surfaceAlt"
-          href="/"
-        >
-          <ArrowLeft size={18} />
-          홈
-        </RoutePendingLink>
-
-        <section className="mt-4 rounded-2xl bg-white p-5 shadow-card sm:p-6">
-          <span className="inline-flex h-7 items-center rounded-full bg-[#E8F7EE] px-3 text-xs font-bold text-primary">
-            내 정보
-          </span>
-          <h1 className="mt-3 text-3xl font-bold">{session.nickname}</h1>
-          <div className="mt-5 grid gap-3">
-            <InfoPill label="닉네임" value={session.nickname} />
-            <InfoPill label="팀" value={session.team?.name ?? "소속 팀 없음"} />
-            <InfoPill label="역할" value={session.team ? teamRoleLabel(session.team.role) : "-"} />
-            <InfoPill label="예정 경기" value={`${session.team?.meetings.length ?? 0}개`} />
-            {session.team ? (
-              <>
-                <InfoPill label="신뢰도" value={`${session.team.reliability.score}점`} />
-                <InfoPill label="참석률" value={`${session.team.reliability.attendanceRate}%`} />
-                <InfoPill label="노쇼" value={`${session.team.reliability.noShowCount}회`} />
-                <InfoPill label="연속 참석" value={`${session.team.reliability.currentStreak}회`} />
-              </>
-            ) : null}
+    <AppShell activePath="/profile">
+      <TopBar title="내 정보" backHref="/" />
+      <section className="mt-6">
+        <ScreenCard className="text-center">
+          <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-appCardSoft text-lg font-black text-white">
+            {session.nickname.slice(0, 1)}
           </div>
+          <h1 className="mt-4 text-3xl font-black text-white">{session.nickname}</h1>
+          <p className="mt-2 text-sm font-bold text-appMuted">
+            {session.team?.name ?? "소속 팀 없음"} · {session.team ? teamRoleLabel(session.team.role) : "Guest"}
+          </p>
+          {session.team ? (
+            <div className="mt-5 grid grid-cols-3 gap-2">
+              <StatCard active label="신뢰도" value={`${session.team.reliability.score}`} />
+              <StatCard label="참석률" value={`${session.team.reliability.attendanceRate}%`} />
+              <StatCard label="연속" value={`${session.team.reliability.currentStreak}회`} />
+            </div>
+          ) : null}
 
           <form action="/api/auth/signout" className="mt-6" method="post">
             <SubmitButton
-              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-surfaceAlt px-5 text-sm font-bold text-secondary transition hover:bg-line sm:w-auto"
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-appCardSoft px-5 text-sm font-bold text-appTextSoft transition hover:bg-appLine sm:w-auto"
               pendingLabel="로그아웃 중"
             >
               <LogOut size={17} />
               로그아웃
             </SubmitButton>
           </form>
-        </section>
+        </ScreenCard>
 
         {session.team ? (
-          <section className="mt-4 rounded-2xl bg-white p-5 shadow-card">
+          <ScreenCard className="mt-4">
             <div className="flex items-center gap-2">
-              <Users className="text-strategy" size={20} />
-              <h2 className="text-lg font-bold">팀 정보</h2>
+              <Users className="text-lime" size={20} />
+              <h2 className="text-lg font-bold text-white">나의 축구 정보</h2>
             </div>
-            <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="mt-4 grid gap-2">
+              <InfoPill label="주 포지션" value="MF · 가능 포지션 DF" />
+              <InfoPill label="참석 이력" value={`예정 경기 ${session.team.meetings.length}개`} />
               <InfoPill label="팀" value={session.team.name} />
               <InfoPill label="역할" value={teamRoleLabel(session.team.role)} />
             </div>
-          </section>
+          </ScreenCard>
         ) : null}
       </section>
-    </main>
+    </AppShell>
   );
 }
 
 function InfoPill({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl bg-surfaceAlt px-4 py-3 text-sm font-semibold">
-      <span className="text-muted">{label}</span>
-      <span className="min-w-0 truncate text-ink">{value}</span>
+    <div className="flex items-center justify-between gap-3 rounded-xl bg-appCardSoft px-4 py-3 text-sm font-semibold">
+      <span className="text-appMuted">{label}</span>
+      <span className="min-w-0 truncate text-appText">{value}</span>
     </div>
   );
 }
