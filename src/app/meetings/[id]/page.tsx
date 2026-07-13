@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import {
-  ArrowLeft,
   CalendarClock,
   ClipboardCheck,
   MapPin,
@@ -9,6 +8,7 @@ import {
   UserCheck,
   Users
 } from "lucide-react";
+import { AppShell, ScreenCard, SegmentedControl, StatCard, TopBar } from "@/components/app-shell";
 import { AttendanceResponsePanel } from "@/components/attendance-response-panel";
 import { HelpIcon } from "@/components/help-icon";
 import { MatchCyclePanel, type MatchCyclePlayer } from "@/components/match-cycle-panel";
@@ -164,61 +164,40 @@ export default async function MeetingDetailPage({
   );
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-app pb-24 text-ink lg:pb-0">
-      <div className="mx-auto flex w-full max-w-5xl max-w-full flex-col overflow-x-hidden px-4 py-4 sm:px-6 lg:px-8 lg:py-7">
-        <header className="flex items-center gap-3 border-b border-line pb-5">
-          <Link
-            aria-label="대시보드로 돌아가기"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-secondary shadow-soft transition hover:bg-surfaceAlt"
-            href="/"
-          >
-            <ArrowLeft size={20} />
-          </Link>
-          <div className="min-w-0 flex-1">
-            <span className="inline-flex h-7 items-center rounded-full bg-[#E8F7EE] px-3 text-xs font-bold text-primary">
-              경기 상세
-            </span>
-            <h1 className="mt-2 truncate text-2xl font-bold leading-8 sm:text-[30px] sm:leading-10">{currentMeeting.title}</h1>
-            {currentMeeting.opponent_name ? (
-              <p className="mt-1 truncate text-sm font-bold text-strategy">vs {currentMeeting.opponent_name}</p>
-            ) : null}
-          </div>
-          {canManageAttendance ? <MeetingAdminMenu meetingId={currentMeeting.id} /> : null}
-        </header>
-
-        <section className="grid min-w-0 gap-5 py-5 lg:py-7">
+    <AppShell activePath="/meetings">
+      <TopBar
+        backHref="/meetings"
+        right={canManageAttendance ? <MeetingAdminMenu meetingId={currentMeeting.id} /> : undefined}
+        title="경기 상세"
+      />
+      <section className="grid min-w-0 gap-5 py-5 lg:py-7">
           <section className="grid min-w-0 gap-4">
-            <article className="overflow-hidden rounded-2xl bg-white shadow-card">
-              <div className="bg-navy px-4 py-5 text-white sm:px-5">
-                <div className="flex items-start gap-3">
-                  <CalendarClock className="mt-0.5 shrink-0 text-white/70" size={20} />
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-white/65">{canManageAttendance ? "운영 요약" : "내 참석 요약"}</p>
-                    <h2 className="mt-1 text-2xl font-black leading-8">{formatMeetingDateTime(currentMeeting.starts_at)}</h2>
-                    <p className="mt-2 line-clamp-2 text-sm font-semibold leading-5 text-white/70">
-                      {currentMeeting.location_note ?? "장소 미정"}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <ScreenCard className="bg-gradient-to-br from-appCardSoft to-appCard">
+              <span className="inline-flex rounded-lg bg-lime px-2 py-1 text-[11px] font-black text-app">D-0</span>
+              <p className="mt-5 text-sm font-bold text-appTextSoft">{formatMeetingDateTime(currentMeeting.starts_at)}</p>
+              <h1 className="mt-2 text-2xl font-black leading-tight text-white">{currentMeeting.title}</h1>
+              {currentMeeting.opponent_name ? <p className="mt-1 text-sm font-bold text-cobalt">vs {currentMeeting.opponent_name}</p> : null}
+              <p className="mt-3 text-sm font-bold text-appTextSoft">{currentMeeting.location_note ?? "장소 미정"}</p>
+              <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {canManageAttendance ? (
                     <>
-                      <HeroMetric label="응답률" value={`${attendanceSummary.responseRate}%`} />
-                      <HeroMetric label="미응답" value={`${attendanceSummary.unansweredCount}명`} />
-                      <HeroMetric label="확정필요" value={`${attendanceSummary.confirmationNeededCount}명`} />
-                      <HeroMetric label="노쇼" value={`${attendanceSummary.noShowCount}명`} danger />
+                      <StatCard active label="응답률" value={`${attendanceSummary.responseRate}%`} />
+                      <StatCard label="미응답" value={`${attendanceSummary.unansweredCount}명`} />
+                      <StatCard label="확정필요" value={`${attendanceSummary.confirmationNeededCount}명`} />
+                      <StatCard label="노쇼" value={`${attendanceSummary.noShowCount}명`} />
                     </>
                   ) : (
                     <>
-                      <HeroMetric label="내 상태" value={attendanceStatusLabel(myAttendance?.status)} />
-                      <HeroMetric label="정원" value={currentMeeting.capacity ? `${currentMeeting.capacity}명` : "미정"} />
-                      <HeroMetric label="대기" value={currentMeeting.allow_waitlist ? "가능" : "없음"} />
-                      <HeroMetric label="마감" value={currentMeeting.attendance_closes_at ? "설정됨" : "미정"} />
+                      <StatCard active label="내 상태" value={attendanceStatusLabel(myAttendance?.status)} />
+                      <StatCard label="정원" value={currentMeeting.capacity ? `${currentMeeting.capacity}명` : "미정"} />
+                      <StatCard label="대기" value={currentMeeting.allow_waitlist ? "가능" : "없음"} />
+                      <StatCard label="마감" value={currentMeeting.attendance_closes_at ? "설정됨" : "미정"} />
                     </>
                   )}
                 </div>
-              </div>
-              <div className="grid gap-3 p-4 sm:p-5">
+            </ScreenCard>
+            <SegmentedControl active="정보" items={["정보", `참석 ${attendanceSummary.respondedCount}`, "라인업"]} />
+            <ScreenCard>
                 <div className="grid gap-2 text-sm sm:grid-cols-2">
                   <InfoRow icon={Timer} label="일정" value={formatMeetingDateTime(currentMeeting.starts_at)} />
                   {currentMeeting.opponent_name ? (
@@ -239,21 +218,20 @@ export default async function MeetingDetailPage({
                   />
                 </div>
                 {currentMeeting.memo ? (
-                  <p className="rounded-xl bg-surfaceAlt px-3 py-3 text-sm font-semibold leading-6 text-secondary">
+                  <p className="rounded-xl bg-appCardSoft px-3 py-3 text-sm font-semibold leading-6 text-appTextSoft">
                     {currentMeeting.memo}
                   </p>
                 ) : null}
                 {canManageAttendance ? (
-                  <Link
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-black text-white shadow-card transition hover:bg-[#12843D]"
+                  <a
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-lime px-5 text-sm font-black text-app shadow-card transition"
                     href="#attendance"
                   >
                     <ClipboardCheck size={17} />
                     출석 운영 바로가기
-                  </Link>
+                  </a>
                 ) : null}
-              </div>
-            </article>
+            </ScreenCard>
 
             <section id="response" className="scroll-mt-4">
               <AttendanceResponsePanel
@@ -314,9 +292,8 @@ export default async function MeetingDetailPage({
             ) : null}
           </section>
         </section>
-      </div>
       <MeetingMobileActionBar canManageAttendance={canManageAttendance} canManageLineup={canManageLineup} myStatus={myAttendance?.status ?? null} />
-    </main>
+    </AppShell>
   );
 }
 
@@ -392,13 +369,13 @@ function InfoRow({
   value: string;
 }) {
   return (
-    <div className="min-w-0 rounded-xl bg-surfaceAlt px-3 py-2.5">
-      <div className="flex items-center gap-2 text-xs font-bold text-muted">
+    <div className="min-w-0 rounded-xl bg-appCardSoft px-3 py-2.5">
+      <div className="flex items-center gap-2 text-xs font-bold text-appMuted">
         <Icon className="shrink-0" size={15} />
         {label}
         {help}
       </div>
-      <p className="mt-1 truncate font-bold text-ink">{value}</p>
+      <p className="mt-1 truncate font-bold text-appText">{value}</p>
     </div>
   );
 }

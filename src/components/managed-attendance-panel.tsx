@@ -102,16 +102,16 @@ export function ManagedAttendancePanel({
           : "";
 
   return (
-    <article className="rounded-2xl bg-white p-4 shadow-card sm:p-5">
+    <article className="rounded-2xl border border-appLine bg-appCard p-4 shadow-card sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-bold">출석 운영</h2>
+            <h2 className="text-lg font-bold text-white">출석 운영</h2>
             <HelpIcon title="출석 운영">
               참석 응답은 멤버의 의사 표시이고, 최종 출석 확정과 노쇼 처리는 운영자가 결정합니다.
             </HelpIcon>
           </div>
-          <p className="mt-1 text-sm font-semibold leading-5 text-secondary">
+          <p className="mt-1 text-sm font-semibold leading-5 text-appTextSoft">
             정원까지 {summary.confirmationNeededCount}명 부족 · 미응답 {summary.unansweredCount}명 · 대기 {summary.waitlistedCount}명
           </p>
         </div>
@@ -122,7 +122,7 @@ export function ManagedAttendancePanel({
         </div>
       </div>
 
-      <div className="mt-4 rounded-xl bg-surfaceAlt px-3 py-2.5 text-xs font-bold text-secondary">
+      <div className="mt-4 rounded-xl bg-appCardSoft px-3 py-2.5 text-xs font-bold text-appTextSoft">
         응답률 {summary.responseRate}% · 참석 예정 {summary.attendingCount}명 · 불참 {summary.absentCount}명
       </div>
 
@@ -153,27 +153,27 @@ function AttendanceModal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-black/45 px-3 py-4 sm:items-center sm:justify-center" role="dialog" aria-modal="true">
-      <section className="max-h-[82vh] w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-card">
-        <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+    <div className="fixed inset-0 z-50 flex items-end bg-black/60 px-3 py-4 sm:items-center sm:justify-center" role="dialog" aria-modal="true">
+      <section className="max-h-[82vh] w-full max-w-lg overflow-hidden rounded-2xl border border-appLine bg-appCard text-appText shadow-card">
+        <div className="flex items-center justify-between gap-3 border-b border-appLine px-4 py-3">
           <div>
             <h3 className="font-bold">{title}</h3>
-            <p className="mt-0.5 text-xs font-semibold text-muted">{members.length}명</p>
+            <p className="mt-0.5 text-xs font-semibold text-appMuted">{members.length}명</p>
           </div>
-          <button className="h-9 rounded-lg bg-surfaceAlt px-3 text-xs font-bold text-secondary" onClick={onClose} type="button">
+          <button className="h-9 rounded-lg bg-appCardSoft px-3 text-xs font-bold text-appTextSoft" onClick={onClose} type="button">
             닫기
           </button>
         </div>
         <div className="grid max-h-[64vh] gap-2 overflow-y-auto p-3">
           {members.length === 0 ? (
-            <p className="rounded-xl bg-surfaceAlt px-3 py-4 text-sm font-semibold text-muted">대상자가 없습니다.</p>
+            <p className="rounded-xl bg-appCardSoft px-3 py-4 text-sm font-semibold text-appMuted">대상자가 없습니다.</p>
           ) : null}
           {members.map((member) => (
-            <div className="rounded-xl bg-white px-3 py-2.5" key={member.profileId}>
+            <div className="rounded-xl bg-appCardSoft px-3 py-2.5" key={member.profileId}>
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate font-bold">{member.nickname}</p>
-                  <p className="mt-1 text-xs font-semibold text-muted">{member.role}</p>
+                  <p className="mt-1 text-xs font-semibold text-appMuted">{member.role}</p>
                 </div>
                 <div className="flex shrink-0 gap-1.5">
                   {member.attendance?.status !== "attending" ? (
@@ -211,7 +211,7 @@ function AttendanceActionButton({
   return (
     <button
       className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-lg px-2.5 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 sm:h-9 sm:px-3 ${
-        danger ? "border border-[#FFD7D7] bg-white text-danger hover:bg-[#FFF1F1]" : "bg-primary text-white hover:bg-[#12843D]"
+        danger ? "border border-danger/40 bg-appCard text-danger hover:bg-[#3A1720]" : "bg-lime text-app hover:bg-lime"
       }`}
       disabled={mutation.isPending}
       onClick={() => mutation.mutate({ profileId, status })}
@@ -226,9 +226,9 @@ function AttendanceActionButton({
 
 function StatusCard({ label, value, onClick }: { label: string; value: string; onClick: () => void }) {
   return (
-    <button className="flex min-w-0 flex-col items-start rounded-xl bg-surfaceAlt px-3 py-2.5 text-left transition hover:bg-[#E8F7EE]" onClick={onClick} type="button">
-      <span className="text-muted">{label}</span>
-      <span className="mt-1 shrink-0 text-ink">{value}</span>
+    <button className="flex min-w-0 flex-col items-start rounded-xl border border-appLine bg-appCardSoft px-3 py-2.5 text-left transition hover:border-lime" onClick={onClick} type="button">
+      <span className="text-appMuted">{label}</span>
+      <span className="mt-1 shrink-0 text-appText">{value}</span>
     </button>
   );
 }

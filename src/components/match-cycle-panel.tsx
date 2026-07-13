@@ -257,24 +257,24 @@ export function MatchCyclePanel({
   }
 
   return (
-    <article className="min-w-0 rounded-2xl bg-white p-4 shadow-card sm:p-5">
+    <article className="min-w-0 rounded-2xl border border-appLine bg-appCard p-4 text-appText shadow-card sm:p-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h2 className="text-lg font-bold">경기 운영 사이클</h2>
-          <p className="mt-1 text-sm font-semibold leading-5 text-secondary">
+          <h2 className="text-lg font-bold text-white">경기 운영 사이클</h2>
+          <p className="mt-1 text-sm font-semibold leading-5 text-appTextSoft">
             용병, 라인업, 라인업 공유, 경기 기록을 참석자 기준으로 관리합니다.
           </p>
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-3 gap-2 rounded-xl bg-surfaceAlt p-1">
+      <div className="mt-5 grid grid-cols-3 gap-2 rounded-xl bg-appCardSoft p-1">
         {[
           ["lineup", "라인업"],
           ["guests", "용병"],
           ["record", "기록"]
         ].map(([value, label]) => (
           <button
-            className={`h-10 rounded-lg text-sm font-bold ${activeSection === value ? "bg-white text-primary shadow-soft" : "text-secondary"}`}
+            className={`h-10 rounded-lg text-sm font-bold ${activeSection === value ? "bg-lime text-app shadow-soft" : "text-appTextSoft"}`}
             key={value}
             onClick={() => setActiveSection(value as typeof activeSection)}
             type="button"
@@ -287,7 +287,7 @@ export function MatchCyclePanel({
       {canManageLineup && activeSection === "lineup" ? (
         <section className="mt-4 grid gap-4">
           <select
-            className="field-input bg-white"
+            className="field-input"
             value={formation}
             onChange={(event) => {
               const nextFormation = getFormationPreset(event.target.value).code;
@@ -353,10 +353,10 @@ export function MatchCyclePanel({
             ))}
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-            <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:gap-2 sm:px-4" disabled={lineupMutation.isPending} onClick={() => lineupMutation.mutate()} type="button">
+            <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-lime px-2 text-sm font-bold text-app disabled:cursor-not-allowed disabled:opacity-60 sm:gap-2 sm:px-4" disabled={lineupMutation.isPending} onClick={() => lineupMutation.mutate()} type="button">
               <PendingButtonContent pending={lineupMutation.isPending} pendingLabel="저장 중"><Save size={16} /> 저장</PendingButtonContent>
             </button>
-            <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-surfaceAlt px-2 text-sm font-bold text-secondary disabled:cursor-not-allowed disabled:opacity-60 sm:gap-2 sm:px-4" disabled={isBoardImagePending} onClick={saveBoardImageToPhotos} type="button">
+            <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-appCardSoft px-2 text-sm font-bold text-appTextSoft disabled:cursor-not-allowed disabled:opacity-60 sm:gap-2 sm:px-4" disabled={isBoardImagePending} onClick={saveBoardImageToPhotos} type="button">
               <PendingButtonContent pending={isBoardImagePending} pendingLabel="공유 준비 중"><Share2 size={16} /> 라인업 공유</PendingButtonContent>
             </button>
             {/* <button className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-surfaceAlt px-2 text-sm font-bold text-secondary sm:gap-2 sm:px-4" onClick={downloadBoardImage} type="button"><Download size={16} /> 이미지</button> */}
@@ -365,7 +365,7 @@ export function MatchCyclePanel({
       ) : null}
 
       {canManageGuests && activeSection === "guests" ? (
-        <section className="mt-4 grid gap-4 rounded-xl border border-line bg-surfaceAlt p-4">
+        <section className="mt-4 grid gap-4 rounded-xl border border-appLine bg-appCardSoft p-4">
           <div className="flex items-center justify-between gap-3">
             <h3 className="flex items-center gap-2 font-bold"><UserPlus size={18} /> 용병 초대</h3>
           </div>
@@ -438,7 +438,7 @@ export function MatchCyclePanel({
               ))}
             </select>
           </div>
-          <section className="grid gap-2 rounded-xl bg-surfaceAlt p-3">
+          <section className="grid gap-2 rounded-xl bg-appCardSoft p-3">
             <div className="flex items-center justify-between gap-3">
               <h4 className="text-sm font-bold">골 / 어시스트</h4>
               <button
