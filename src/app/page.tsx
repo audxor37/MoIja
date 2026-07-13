@@ -15,6 +15,7 @@ import {
   Users
 } from "lucide-react";
 import { createOrganizerTeam, joinTeamByInvite } from "@/app/onboarding/actions";
+import { ActionRow, AppShell, PrimaryAction, ScreenCard, StatCard, TopBar } from "@/components/app-shell";
 import { AttendanceResponsePanel } from "@/components/attendance-response-panel";
 import { DashboardCacheHydrator } from "@/components/dashboard-cache-hydrator";
 import { DashboardMeetingList } from "@/components/dashboard-meeting-list";
@@ -37,9 +38,10 @@ export const dynamic = "force-dynamic";
 
 const navIconByLabel = {
   홈: Grid2X2,
-  "새 경기": CalendarPlus,
+  경기: CalendarPlus,
+  랭킹: ShieldCheck,
   팀: Users,
-  "내 정보": ShieldCheck
+  MY: ShieldCheck
 } as const;
 
 const activeNavItems = getActiveDashboardNavItems();
@@ -217,136 +219,64 @@ function OperatorDashboard({
   team: TeamSession;
 }) {
   const nextMeeting = team.meetings[0] ?? null;
-  const nextMeetingMetrics = nextMeeting ? getMeetingFocusMetrics(nextMeeting.attendanceSummary) : [];
 
   return (
-    <main className="min-h-screen bg-app pb-24 text-ink lg:pb-0">
-      <div className="lg:grid lg:min-h-screen lg:grid-cols-[260px_1fr]">
-        <aside className="border-b border-line bg-white px-4 py-3 lg:min-h-screen lg:border-b-0 lg:border-r lg:px-5 lg:py-5">
-          <Brand />
-          <nav className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:mt-6 lg:grid-cols-1">
-            {activeNavItems.map((item) => (
-              <NavButton
-                key={item.label}
-                active={item.href === "/"}
-                href={item.href}
-                icon={navIconByLabel[item.label]}
-                label={item.label}
-              />
-            ))}
-          </nav>
-        </aside>
+    <AppShell activePath="/">
+      <TopBar title="홈" />
+      <section className="mt-6">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-wide text-appMuted">{team.role === "owner" ? "Owner" : "Manager"}</p>
+            <h1 className="mt-1 text-[30px] font-black leading-tight text-white">{team.name}</h1>
+          </div>
+          <InviteCodeCopyButton inviteCode={team.inviteCode} />
+        </div>
 
-        <section className="min-w-0">
-          <section className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
-            <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <span className="inline-flex h-7 items-center rounded-full bg-[#E8F3FF] px-3 text-xs font-bold text-strategy">
-                  {team.role === "owner" ? "Owner 대시보드" : "팀 대시보드"}
-                </span>
-                <h1 className="mt-2 max-w-3xl text-[26px] font-bold leading-9 sm:text-[32px]">
-                  {team.name} 경기 관리
-                </h1>
+        {nextMeeting ? (
+          <>
+            <p className="mt-8 text-sm font-black text-appTextSoft">다음 경기</p>
+            <h2 className="mt-1 text-[28px] font-black leading-tight text-white">라인업 준비</h2>
+            <ScreenCard className="mt-4">
+              <RoutePendingLink className="block" href={`/meetings/${nextMeeting.id}`}>
+                <p className="text-xs font-black text-appMuted">{formatMeetingDateTime(nextMeeting.startsAt)}</p>
+                <h3 className="mt-2 text-xl font-black leading-7 text-white">{nextMeeting.title}</h3>
+                {nextMeeting.opponentName ? <p className="mt-1 text-sm font-bold text-cobalt">vs {nextMeeting.opponentName}</p> : null}
+                <p className="mt-2 text-sm font-bold text-appTextSoft">{nextMeeting.locationNote ?? "장소 미정"}</p>
+              </RoutePendingLink>
+              <div className="mt-4 grid grid-cols-4 gap-2">
+                {getUpcomingMeetingActions(nextMeeting.attendanceSummary).slice(0, 4).map((action) => (
+                  <StatCard active={action.label === "참석"} key={action.label} label={action.label} value={action.value} />
+                ))}
               </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <InviteCodeCopyButton inviteCode={team.inviteCode} />
-                <RoutePendingLink
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-card transition hover:bg-[#12843D]"
-                  href="/meetings/new"
-                >
-                  <Plus size={18} />
-                  새 경기
-                </RoutePendingLink>
+              <div className="mt-4">
+                <PrimaryAction href={`/meetings/${nextMeeting.id}`}>라인업 보기</PrimaryAction>
               </div>
-            </section>
+            </ScreenCard>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <ActionRow icon={ClipboardCheck} title="빠른 체크인" description="현장 출석 확인" href={`/meetings/${nextMeeting.id}#attendance`} />
+              <ActionRow icon={Users} title="라인업 작성" description="확정자 기준 편집" href={`/meetings/${nextMeeting.id}#cycle`} />
+            </div>
+          </>
+        ) : (
+          <ScreenCard className="mt-8">
+            <h2 className="text-xl font-black text-white">아직 등록된 경기가 없습니다</h2>
+            <div className="mt-4">
+              <PrimaryAction href="/meetings/new">첫 경기 만들기</PrimaryAction>
+            </div>
+          </ScreenCard>
+        )}
 
-            {nextMeeting ? (
-              <section className="mt-5 overflow-hidden rounded-2xl bg-navy text-white shadow-card">
-                <div className="border-b border-white/10 px-4 py-4 sm:px-5">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-white/70">오늘/다음 경기 운영</p>
-                      <RoutePendingLink className="mt-1 block truncate text-2xl font-bold" href={`/meetings/${nextMeeting.id}`}>
-                        {nextMeeting.title}
-                      </RoutePendingLink>
-                      {nextMeeting.opponentName ? (
-                        <p className="mt-1 truncate text-sm font-bold text-white/80">vs {nextMeeting.opponentName}</p>
-                      ) : null}
-                      <p className="mt-2 text-sm font-semibold text-white/70">
-                        {formatMeetingDateTime(nextMeeting.startsAt)} · {nextMeeting.locationNote ?? "장소 미정"}
-                      </p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[430px]">
-                      {nextMeetingMetrics.map((metric) => (
-                        <RoutePendingLink
-                          className={`min-h-16 rounded-xl px-3 py-2.5 ${operatorActionToneClass(metric.tone)}`}
-                          href={`/meetings/${nextMeeting.id}`}
-                          key={metric.label}
-                        >
-                          <span className="block text-[11px] font-bold opacity-75">{metric.label}</span>
-                          <span className="mt-1 block text-2xl font-black leading-7">{metric.value}</span>
-                        </RoutePendingLink>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <div className="grid gap-3 px-4 py-4 sm:px-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-                    {getUpcomingMeetingActions(nextMeeting.attendanceSummary).map((action) => (
-                      <RoutePendingLink
-                        className={`rounded-xl px-3 py-2 ${operatorActionToneClass(action.tone)}`}
-                        href={`/meetings/${nextMeeting.id}`}
-                        key={action.label}
-                      >
-                        <span className="block text-[11px] font-bold opacity-75">{action.label}</span>
-                        <span className="mt-1 block text-lg font-black leading-6">{action.value}</span>
-                      </RoutePendingLink>
-                    ))}
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[460px]">
-                    <RoutePendingLink
-                      className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-black text-navy"
-                      href={`/meetings/${nextMeeting.id}#attendance`}
-                    >
-                      <ClipboardCheck size={17} />
-                      출석 운영
-                    </RoutePendingLink>
-                    <RoutePendingLink
-                      className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white/10 px-5 text-sm font-bold text-white"
-                      href={`/meetings/${nextMeeting.id}#cycle`}
-                    >
-                      <Users size={17} />
-                      용병/라인업
-                    </RoutePendingLink>
-                    <RoutePendingLink
-                      className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white/10 px-5 text-sm font-bold text-white"
-                      href={`/meetings/${nextMeeting.id}#attendance`}
-                    >
-                      <Siren size={17} />
-                      노쇼 처리
-                    </RoutePendingLink>
-                  </div>
-                </div>
-              </section>
-            ) : null}
-
-            <section className="mt-5 rounded-2xl bg-white p-4 shadow-card sm:p-5">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-lg font-bold">경기 목록</h2>
-                </div>
-                <span className="inline-flex w-fit items-center gap-2 rounded-full bg-surfaceAlt px-3 py-1 text-xs font-bold text-secondary">
-                  <Timer size={14} />
-                  경기별 마감 표시
-                </span>
-              </div>
-              <DashboardMeetingList emptyState="operator" meetings={team.meetings} selectFirst />
-            </section>
-          </section>
+        <section className="mt-5">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-lg font-black text-white">팀 일정</h2>
+            <RoutePendingLink className="text-xs font-black text-cobalt" href="/meetings">
+              전체 보기
+            </RoutePendingLink>
+          </div>
+          <DashboardMeetingList emptyState="operator" meetings={team.meetings} selectFirst />
         </section>
-      </div>
-      <MobileBottomNav />
-    </main>
+      </section>
+    </AppShell>
   );
 }
 
@@ -359,87 +289,62 @@ function MemberDashboard({
   const reliabilityDisplay = getReliabilityDisplay(team.reliability);
 
   return (
-    <main className="min-h-screen bg-app pb-24 text-ink lg:pb-0">
-      <section className="mx-auto grid w-full max-w-6xl gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:py-6">
-        <section className="rounded-2xl bg-white p-5 shadow-card sm:p-6">
-          <span className="inline-flex h-7 items-center rounded-full bg-[#E8F3FF] px-3 text-xs font-bold text-strategy">
-            {teamRoleLabel(team.role)} 홈
-          </span>
-          <h1 className="mt-3 text-[30px] font-bold leading-10">{team.name}의 내 다음 행동</h1>
-          {nextMeeting ? (
-            <div className="mt-6 grid gap-4">
-              <article className="rounded-2xl border border-primary bg-[#F8FEFA] p-5">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="text-sm font-bold text-primary">다음 경기</p>
-                    <RoutePendingLink className="mt-1 block text-2xl font-bold hover:text-primary" href={`/meetings/${nextMeeting.id}`}>
-                      {nextMeeting.title}
-                    </RoutePendingLink>
-                    {nextMeeting.opponentName ? (
-                      <p className="mt-1 text-sm font-bold text-strategy">vs {nextMeeting.opponentName}</p>
-                    ) : null}
-                    <p className="mt-3 text-sm font-semibold text-secondary">
-                      {formatMeetingDateTime(nextMeeting.startsAt)} · {nextMeeting.locationNote ?? "장소 미정"}
-                    </p>
-                    <p className="mt-2 text-xs font-bold text-muted">
-                      {nextMeeting.attendanceClosesAt ? `${formatMeetingDateTime(nextMeeting.attendanceClosesAt)} 마감` : "마감 미정"}
-                    </p>
-                  </div>
-                  <span className="inline-flex w-fit items-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-bold text-secondary">
-                    <UserCheck size={16} />
-                    {attendanceStatusLabel(nextMeeting.myAttendanceStatus)}
-                  </span>
+    <AppShell activePath="/">
+      <TopBar title="홈" />
+      <section className="mt-6">
+        <p className="text-xs font-black uppercase tracking-wide text-appMuted">{teamRoleLabel(team.role)} 홈</p>
+        <h1 className="mt-1 text-[30px] font-black leading-tight text-white">{team.name}</h1>
+
+        {nextMeeting ? (
+          <div className="mt-6 grid gap-4">
+            <ScreenCard>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-lime">다음 경기</p>
+                  <RoutePendingLink className="mt-2 block truncate text-2xl font-black text-white" href={`/meetings/${nextMeeting.id}`}>
+                    {nextMeeting.title}
+                  </RoutePendingLink>
+                  {nextMeeting.opponentName ? <p className="mt-1 text-sm font-bold text-cobalt">vs {nextMeeting.opponentName}</p> : null}
+                  <p className="mt-3 text-sm font-bold text-appTextSoft">
+                    {formatMeetingDateTime(nextMeeting.startsAt)} · {nextMeeting.locationNote ?? "장소 미정"}
+                  </p>
                 </div>
-              </article>
-              <AttendanceResponsePanel
-                allowWaitlist={nextMeeting.allowWaitlist}
-                initialStatus={nextMeeting.myAttendanceStatus}
-                meetingId={nextMeeting.id}
-              />
-              <section className="rounded-2xl bg-white p-4 shadow-card">
-                <h2 className="text-lg font-bold">경기 목록</h2>
-                <DashboardMeetingList emptyState="member" meetings={team.meetings} />
-              </section>
-            </div>
-          ) : (
-            <MemberEmptyState />
-          )}
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-appCardSoft px-3 py-2 text-xs font-black text-appTextSoft">
+                  <UserCheck size={15} />
+                  {attendanceStatusLabel(nextMeeting.myAttendanceStatus)}
+                </span>
+              </div>
+            </ScreenCard>
+            <AttendanceResponsePanel
+              allowWaitlist={nextMeeting.allowWaitlist}
+              initialStatus={nextMeeting.myAttendanceStatus}
+              meetingId={nextMeeting.id}
+            />
+          </div>
+        ) : (
+          <MemberEmptyState />
+        )}
+
+        <section className="mt-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-black text-white">참석 신뢰도</h2>
+            <span className={`rounded-full px-3 py-1 text-xs font-black ${reliabilityToneClass(reliabilityDisplay.tone)}`}>
+              {reliabilityDisplay.label}
+            </span>
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <StatCard active label="신뢰도" value={`${team.reliability.score}`} />
+            <StatCard label="참석률" value={`${team.reliability.attendanceRate}%`} />
+            <StatCard label="연속" value={`${team.reliability.currentStreak}회`} />
+          </div>
         </section>
 
-        <aside className="grid gap-5">
-          <section className="rounded-2xl bg-white p-5 shadow-card">
-            <h2 className="text-lg font-bold">내 상태</h2>
-            <div className="mt-4 grid gap-3">
-              <StatusPill label="역할" value={teamRoleLabel(team.role)} />
-              <StatusPill label="다음 응답" value={nextMeeting ? attendanceStatusLabel(nextMeeting.myAttendanceStatus) : "대기 중"} />
-              <StatusPill label="예정 경기" value={`${team.meetings.length}개`} />
-            </div>
-          </section>
-          <section className="rounded-2xl bg-navy p-5 text-white shadow-card">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold">참석 신뢰도</h2>
-                  <HelpIcon title="참석 신뢰도">
-                    참석 응답과 실제 출석 흐름을 함께 보는 운영 지표입니다. 노쇼가 있으면 회복 상태로 표시됩니다.
-                  </HelpIcon>
-                </div>
-              </div>
-              <span className={`rounded-full px-3 py-1 text-xs font-black ${reliabilityToneClass(reliabilityDisplay.tone)}`}>
-                {reliabilityDisplay.label}
-              </span>
-            </div>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <ReliabilityPill label="점수" value={`${team.reliability.score}점`} dark />
-              <ReliabilityPill label="참석률" value={`${team.reliability.attendanceRate}%`} dark />
-              <ReliabilityPill label="노쇼" value={`${team.reliability.noShowCount}회`} dark />
-              <ReliabilityPill label="연속 참석" value={`${team.reliability.currentStreak}회`} dark />
-            </div>
-          </section>
-        </aside>
+        <section className="mt-5">
+          <h2 className="mb-3 text-lg font-black text-white">팀 일정</h2>
+          <DashboardMeetingList emptyState="member" meetings={team.meetings} />
+        </section>
       </section>
-      <MobileBottomNav />
-    </main>
+    </AppShell>
   );
 }
 
