@@ -6,9 +6,9 @@ import {
   Bell,
   CalendarDays,
   ChevronRight,
+  ClipboardCheck,
   Crown,
   Home,
-  type LucideIcon,
   Shield,
   User,
   Users
@@ -25,6 +25,14 @@ const navIcons = {
 } as const;
 
 type NavLabel = keyof typeof navIcons;
+
+const actionRowIcons = {
+  clipboardCheck: ClipboardCheck,
+  shield: Shield,
+  users: Users
+} as const;
+
+type ActionRowIcon = keyof typeof actionRowIcons;
 
 export function AppShell({
   children,
@@ -146,16 +154,18 @@ export function StatCard({
 }
 
 export function ActionRow({
-  icon: Icon = Shield,
+  icon = "shield",
   title,
   description,
   href
 }: {
-  icon?: LucideIcon;
+  icon?: ActionRowIcon;
   title: string;
   description: string;
   href: string;
 }) {
+  const Icon = actionRowIcons[icon];
+
   return (
     <RoutePendingLink className="flex min-h-[68px] items-center gap-3 rounded-2xl border border-appLine bg-appCard px-4 py-3 text-left" href={href}>
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-appCardSoft text-lime">

@@ -1,6 +1,5 @@
 import {
   CalendarPlus,
-  ClipboardCheck,
   Grid2X2,
   KeyRound,
   LogIn,
@@ -253,8 +252,8 @@ function OperatorDashboard({
               </div>
             </ScreenCard>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <ActionRow icon={ClipboardCheck} title="빠른 체크인" description="현장 출석 확인" href={`/meetings/${nextMeeting.id}#attendance`} />
-              <ActionRow icon={Users} title="라인업 작성" description="확정자 기준 편집" href={`/meetings/${nextMeeting.id}#cycle`} />
+              <ActionRow icon="clipboardCheck" title="빠른 체크인" description="현장 출석 확인" href={`/meetings/${nextMeeting.id}#attendance`} />
+              <ActionRow icon="users" title="라인업 작성" description="확정자 기준 편집" href={`/meetings/${nextMeeting.id}#cycle`} />
             </div>
           </>
         ) : (
