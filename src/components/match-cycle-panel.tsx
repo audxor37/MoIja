@@ -76,7 +76,9 @@ export function MatchCyclePanel({
   initialLineup,
   initialRecord,
   initialPlayerRecords,
-  meetingTitle
+  meetingTitle,
+  initialSection = "lineup",
+  showSectionTabs = true
 }: {
   meetingId: string;
   meetingTitle: string;
@@ -88,12 +90,14 @@ export function MatchCyclePanel({
   initialLineup: { formation: string; boardNote: string | null } | null;
   initialRecord: MatchRecordValue | null;
   initialPlayerRecords: PlayerRecordValue[];
+  initialSection?: "lineup" | "guests" | "record";
+  showSectionTabs?: boolean;
 }) {
   const queryClient = useQueryClient();
   const showToast = useToast();
   const boardRef = useRef<HTMLDivElement | null>(null);
   const [players, setPlayers] = useState(initialPlayers);
-  const [activeSection, setActiveSection] = useState<"lineup" | "guests" | "record">("lineup");
+  const [activeSection, setActiveSection] = useState<"lineup" | "guests" | "record">(initialSection);
   const [formation, setFormation] = useState(getFormationPreset(initialLineup?.formation ?? initialRecord?.formation ?? "4-4-2").code);
   const [boardNote, setBoardNote] = useState(initialLineup?.boardNote ?? "");
   const [scoringEvents, setScoringEvents] = useState<ScoringEventState[]>(() =>
@@ -267,22 +271,24 @@ export function MatchCyclePanel({
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-3 gap-2 rounded-xl bg-appCardSoft p-1">
-        {[
-          ["lineup", "라인업"],
-          ["guests", "용병"],
-          ["record", "기록"]
-        ].map(([value, label]) => (
-          <button
-            className={`h-10 rounded-lg text-sm font-bold ${activeSection === value ? "bg-lime text-app shadow-soft" : "text-appTextSoft"}`}
-            key={value}
-            onClick={() => setActiveSection(value as typeof activeSection)}
-            type="button"
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {showSectionTabs ? (
+        <div className="mt-5 grid grid-cols-3 gap-2 rounded-xl bg-appCardSoft p-1">
+          {[
+            ["lineup", "라인업"],
+            ["guests", "용병"],
+            ["record", "기록"]
+          ].map(([value, label]) => (
+            <button
+              className={`h-10 rounded-lg text-sm font-bold ${activeSection === value ? "bg-lime text-app shadow-soft" : "text-appTextSoft"}`}
+              key={value}
+              onClick={() => setActiveSection(value as typeof activeSection)}
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {canManageLineup && activeSection === "lineup" ? (
         <section className="mt-4 grid gap-4">

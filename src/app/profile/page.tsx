@@ -1,5 +1,6 @@
 import { LogOut, ShieldCheck, Users } from "lucide-react";
-import { AppShell, ScreenCard, StatCard, TopBar } from "@/components/app-shell";
+import { ActionRow, AppShell, ScreenCard, StatCard, TopBar } from "@/components/app-shell";
+import { buildProfileTaskHref } from "@/lib/dashboard-ux";
 import { RoutePendingLink, SubmitButton } from "@/components/pending-ui";
 import { getDashboardSession } from "@/lib/server/dashboard-data";
 import { teamRoleLabel } from "@/lib/team-management";
@@ -69,6 +70,11 @@ export default async function ProfilePage() {
             </div>
           </ScreenCard>
         ) : null}
+
+        <section className="mt-4 grid gap-3">
+          <ActionRow description="닉네임과 포지션 정보" href={buildProfileTaskHref("edit")} icon="user" title="프로필 편집" />
+          <ActionRow description="예정 경기와 참석 응답" href="/meetings" icon="clipboardCheck" title="내 경기 보기" />
+        </section>
       </section>
     </AppShell>
   );

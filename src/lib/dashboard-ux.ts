@@ -23,6 +23,17 @@ export type UpcomingMeetingSummary = {
 };
 
 export type DashboardTone = "success" | "info" | "warning" | "danger" | "muted";
+export type MeetingTask = "attendance" | "lineup" | "guests" | "record";
+export type TeamTask = "invite" | "members";
+export type ProfileTask = "edit";
+export type HubActionIcon = "clipboardCheck" | "shield" | "users" | "userPlus" | "trophy" | "user";
+
+export type HubAction = {
+  title: string;
+  description: string;
+  href: string;
+  icon: HubActionIcon;
+};
 
 export function getActiveDashboardNavItems(): DashboardNavItem[] {
   return [
@@ -41,6 +52,47 @@ export function getUpcomingMeetingActions(summary: UpcomingMeetingSummary) {
     { label: "대기", value: String(summary.waitlistedCount), tone: "info" as const },
     { label: "확정 필요", value: String(summary.confirmationNeededCount), tone: "warning" as const },
     { label: "노쇼 위험", value: String(summary.noShowCount), tone: "danger" as const }
+  ];
+}
+
+export function buildMeetingTaskHref(meetingId: string, task: MeetingTask) {
+  return `/meetings/${meetingId}/${task}`;
+}
+
+export function buildTeamTaskHref(task: TeamTask) {
+  return `/team/${task}`;
+}
+
+export function buildProfileTaskHref(task: ProfileTask) {
+  return `/profile/${task}`;
+}
+
+export function getMeetingHubActions({
+  meetingId,
+  canManageAttendance,
+  canManageLineup
+}: {
+  meetingId: string;
+  canManageAttendance: boolean;
+  canManageLineup: boolean;
+}): HubAction[] {
+  if (canManageAttendance) {
+    return [
+      { title: "빠른 체크인", description: "현장 출석 확인", href: buildMeetingTaskHref(meetingId, "attendance"), icon: "clipboardCheck" },
+      { title: "라인업 작성", description: "확정자 기준 편집", href: buildMeetingTaskHref(meetingId, "lineup"), icon: "users" },
+      { title: "용병 관리", description: "초대와 참석 상태", href: buildMeetingTaskHref(meetingId, "guests"), icon: "userPlus" },
+      { title: "기록 입력", description: "결과와 개인 기록", href: buildMeetingTaskHref(meetingId, "record"), icon: "trophy" }
+    ];
+  }
+
+  if (canManageLineup) {
+    return [
+      { title: "내 라인업 확인", description: "공유된 배치 보기", href: buildMeetingTaskHref(meetingId, "lineup"), icon: "users" }
+    ];
+  }
+
+  return [
+    { title: "참석 응답", description: "참석 상태 변경", href: buildMeetingTaskHref(meetingId, "attendance"), icon: "clipboardCheck" }
   ];
 }
 

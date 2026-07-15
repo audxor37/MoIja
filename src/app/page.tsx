@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { createOrganizerTeam, joinTeamByInvite } from "@/app/onboarding/actions";
 import { ActionRow, AppShell, PrimaryAction, ScreenCard, StatCard, TopBar } from "@/components/app-shell";
-import { AttendanceResponsePanel } from "@/components/attendance-response-panel";
 import { DashboardCacheHydrator } from "@/components/dashboard-cache-hydrator";
 import { DashboardMeetingList } from "@/components/dashboard-meeting-list";
 import { HelpIcon } from "@/components/help-icon";
@@ -233,8 +232,8 @@ function OperatorDashboard({
 
         {nextMeeting ? (
           <>
-            <p className="mt-8 text-sm font-black text-appTextSoft">다음 경기</p>
-            <h2 className="mt-1 text-[28px] font-black leading-tight text-white">라인업 준비</h2>
+            <p className="mt-8 text-sm font-black text-appTextSoft">오늘 해야 할 일</p>
+            <h2 className="mt-1 text-[28px] font-black leading-tight text-white">경기 운영</h2>
             <ScreenCard className="mt-4">
               <RoutePendingLink className="block" href={`/meetings/${nextMeeting.id}`}>
                 <p className="text-xs font-black text-appMuted">{formatMeetingDateTime(nextMeeting.startsAt)}</p>
@@ -248,12 +247,14 @@ function OperatorDashboard({
                 ))}
               </div>
               <div className="mt-4">
-                <PrimaryAction href={`/meetings/${nextMeeting.id}`}>라인업 보기</PrimaryAction>
+                <PrimaryAction href={`/meetings/${nextMeeting.id}`}>경기 허브 보기</PrimaryAction>
               </div>
             </ScreenCard>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <ActionRow icon="clipboardCheck" title="빠른 체크인" description="현장 출석 확인" href={`/meetings/${nextMeeting.id}#attendance`} />
-              <ActionRow icon="users" title="라인업 작성" description="확정자 기준 편집" href={`/meetings/${nextMeeting.id}#cycle`} />
+              <ActionRow icon="clipboardCheck" title="빠른 체크인" description="현장 출석 확인" href={`/meetings/${nextMeeting.id}/attendance`} />
+              <ActionRow icon="users" title="라인업 작성" description="확정자 기준 편집" href={`/meetings/${nextMeeting.id}/lineup`} />
+              <ActionRow icon="userPlus" title="용병 관리" description="초대와 참석 상태" href={`/meetings/${nextMeeting.id}/guests`} />
+              <ActionRow icon="trophy" title="기록 입력" description="결과와 개인 기록" href={`/meetings/${nextMeeting.id}/record`} />
             </div>
           </>
         ) : (
@@ -314,11 +315,10 @@ function MemberDashboard({
                 </span>
               </div>
             </ScreenCard>
-            <AttendanceResponsePanel
-              allowWaitlist={nextMeeting.allowWaitlist}
-              initialStatus={nextMeeting.myAttendanceStatus}
-              meetingId={nextMeeting.id}
-            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <ActionRow icon="clipboardCheck" title="참석 응답" description="참석 상태 변경" href={`/meetings/${nextMeeting.id}/attendance`} />
+              <ActionRow icon="users" title="내 라인업" description="공유된 배치 확인" href={`/meetings/${nextMeeting.id}/lineup`} />
+            </div>
           </div>
         ) : (
           <MemberEmptyState />

@@ -23,12 +23,14 @@ export function TeamManagementPanel({
   team,
   actorRole,
   currentUserId,
-  initialMembers
+  initialMembers,
+  mode = "all"
 }: {
   team: { id: string; name: string; inviteCode: string | null };
   actorRole: string;
   currentUserId: string;
   initialMembers: TeamManagementMember[];
+  mode?: "all" | "invite" | "members";
 }) {
   const queryClient = useQueryClient();
   const showToast = useToast();
@@ -79,6 +81,7 @@ export function TeamManagementPanel({
 
   return (
     <section className="mt-6 grid gap-5">
+      {mode !== "members" ? (
       <aside className="grid gap-4">
         <section className="rounded-2xl border border-appLine bg-appCard p-5 shadow-card">
           <div className="flex items-center gap-3">
@@ -107,7 +110,9 @@ export function TeamManagementPanel({
           </div>
         </section>
       </aside>
+      ) : null}
 
+      {mode !== "invite" ? (
       <section className="rounded-2xl border border-appLine bg-appCard p-5 shadow-card">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -171,6 +176,7 @@ export function TeamManagementPanel({
           })}
         </div>
       </section>
+      ) : null}
     </section>
   );
 }

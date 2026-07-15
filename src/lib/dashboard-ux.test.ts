@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildMeetingTaskHref,
+  buildProfileTaskHref,
+  buildTeamTaskHref,
   getActiveDashboardNavItems,
+  getMeetingHubActions,
   filterDashboardMeetings,
   getMeetingFocusMetrics,
   getReliabilityDisplay,
@@ -34,6 +38,29 @@ test("builds compact next-match action metrics for operators", () => {
     { label: "대기", value: "2", tone: "info" },
     { label: "확정 필요", value: "3", tone: "warning" },
     { label: "노쇼 위험", value: "1", tone: "danger" }
+  ]);
+});
+
+test("builds route-based task links for meeting, team, and profile work screens", () => {
+  assert.equal(buildMeetingTaskHref("match-1", "attendance"), "/meetings/match-1/attendance");
+  assert.equal(buildMeetingTaskHref("match-1", "lineup"), "/meetings/match-1/lineup");
+  assert.equal(buildMeetingTaskHref("match-1", "guests"), "/meetings/match-1/guests");
+  assert.equal(buildMeetingTaskHref("match-1", "record"), "/meetings/match-1/record");
+  assert.equal(buildTeamTaskHref("members"), "/team/members");
+  assert.equal(buildTeamTaskHref("invite"), "/team/invite");
+  assert.equal(buildProfileTaskHref("edit"), "/profile/edit");
+});
+
+test("returns meeting hub actions by role without hash navigation", () => {
+  assert.deepEqual(getMeetingHubActions({ meetingId: "match-1", canManageAttendance: true, canManageLineup: true }), [
+    { title: "빠른 체크인", description: "현장 출석 확인", href: "/meetings/match-1/attendance", icon: "clipboardCheck" },
+    { title: "라인업 작성", description: "확정자 기준 편집", href: "/meetings/match-1/lineup", icon: "users" },
+    { title: "용병 관리", description: "초대와 참석 상태", href: "/meetings/match-1/guests", icon: "userPlus" },
+    { title: "기록 입력", description: "결과와 개인 기록", href: "/meetings/match-1/record", icon: "trophy" }
+  ]);
+
+  assert.deepEqual(getMeetingHubActions({ meetingId: "match-1", canManageAttendance: false, canManageLineup: true }), [
+    { title: "내 라인업 확인", description: "공유된 배치 보기", href: "/meetings/match-1/lineup", icon: "users" }
   ]);
 });
 

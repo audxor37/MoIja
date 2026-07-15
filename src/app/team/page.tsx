@@ -1,61 +1,46 @@
-import { Copy } from "lucide-react";
+import { Copy, Users } from "lucide-react";
 import Link from "next/link";
-import { AppShell, ScreenCard, TopBar } from "@/components/app-shell";
-import { TeamManagementPanel } from "@/components/team-management-panel";
-import { canManageTeamRole } from "@/lib/team-management";
-import { getCurrentUserId } from "@/lib/supabase/auth-user";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ActionRow, AppShell, ScreenCard, StatCard, TopBar } from "@/components/app-shell";
+import { buildTeamTaskHref } from "@/lib/dashboard-ux";
+import { getTeamManagementData } from "@/lib/server/team-data";
+import { teamRoleLabel } from "@/lib/team-management";
 
 export default async function TeamPage() {
-  const supabase = await createSupabaseServerClient();
-  const userId = await getCurrentUserId(supabase);
+  const data = await getTeamManagementData();
 
-  if (!userId) {
+  if (data.status === "auth") {
     return <Shell message="로그인이 필요합니다" />;
   }
 
-  const { data: membership } = await supabase
-    .from("team_members")
-    .select("team_id, role, teams(id, name, invite_code)")
-    .eq("profile_id", userId)
-    .order("joined_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  const typedMembership = membership as
-    | { team_id: string; role: string; teams?: { id: string; name: string; invite_code: string | null } | { id: string; name: string; invite_code: string | null }[] | null }
-    | null;
-  const team = Array.isArray(typedMembership?.teams) ? typedMembership?.teams[0] : typedMembership?.teams;
-
-  if (!typedMembership || !team || !canManageTeamRole(typedMembership.role)) {
+  if (data.status === "permission") {
     return <Shell message="권한 없음" />;
   }
 
-  const { data: members } = await supabase
-    .from("team_members")
-    .select("id, profile_id, role, joined_at, profiles(nickname, avatar_url)")
-    .eq("team_id", team.id)
-    .order("joined_at", { ascending: true });
-
-  const rows = ((members ?? []) as TeamMemberRow[]).map((member) => {
-    const profile = Array.isArray(member.profiles) ? member.profiles[0] : member.profiles;
-    return {
-      id: member.id,
-      profileId: member.profile_id,
-      role: member.role,
-      joinedAt: member.joined_at,
-      nickname: profile?.nickname ?? "이름 없음"
-    };
-  });
   return (
     <AppShell activePath="/team">
       <TopBar title="팀" backHref="/" />
-      <TeamManagementPanel
-        actorRole={typedMembership.role}
-        currentUserId={userId}
-        initialMembers={rows}
-        team={{ id: team.id, name: team.name, inviteCode: team.invite_code }}
-      />
+      <section className="grid gap-4 py-5 lg:py-7">
+        <ScreenCard>
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-appCardSoft text-lime">
+              <Users size={22} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-lime">{teamRoleLabel(data.actorRole)}</p>
+              <h1 className="truncate text-2xl font-bold text-white">{data.team.name}</h1>
+            </div>
+          </div>
+          <div className="mt-5 grid grid-cols-2 gap-2">
+            <StatCard active label="멤버" value={`${data.members.length}명`} />
+            <StatCard label="초대코드" value={data.team.inviteCode ? "활성" : "없음"} />
+          </div>
+        </ScreenCard>
+
+        <section className="grid gap-3">
+          <ActionRow description="초대코드 복사와 재발급" href={buildTeamTaskHref("invite")} icon="userPlus" title="팀 초대 관리" />
+          <ActionRow description="역할과 권한 조정" href={buildTeamTaskHref("members")} icon="users" title="멤버 권한 관리" />
+        </section>
+      </section>
     </AppShell>
   );
 }
@@ -74,11 +59,3 @@ function Shell({ message }: { message: string }) {
     </AppShell>
   );
 }
-
-type TeamMemberRow = {
-  id: string;
-  profile_id: string;
-  role: string;
-  joined_at: string;
-  profiles?: { nickname: string | null; avatar_url: string | null } | { nickname: string | null; avatar_url: string | null }[] | null;
-};

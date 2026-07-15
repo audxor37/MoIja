@@ -10,7 +10,9 @@ import {
   Crown,
   Home,
   Shield,
+  Trophy,
   User,
+  UserPlus,
   Users
 } from "lucide-react";
 import { RoutePendingLink } from "@/components/pending-ui";
@@ -29,6 +31,9 @@ type NavLabel = keyof typeof navIcons;
 const actionRowIcons = {
   clipboardCheck: ClipboardCheck,
   shield: Shield,
+  trophy: Trophy,
+  user: User,
+  userPlus: UserPlus,
   users: Users
 } as const;
 
